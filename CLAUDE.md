@@ -60,4 +60,27 @@ See `docs/PROGRESS.md` for the live P0 checklist. Update it after every meaningf
 TypeScript · Next.js (App Router) · PGlite in a Web Worker · `fetch` to BharatCode `/responses` ·
 Zod · Vitest (real PGlite in Node) · Playwright smoke test.
 
-Commands are listed in `README.md` once the scaffold exists.
+## Commands
+
+```bash
+npm run dev          # local app on :3000 (needs .env.local for AI analysis)
+npm test             # vitest: guard, equivalence, API client, pipeline on real PGlite (~70 s)
+npm run typecheck
+npm run build
+npm run mock:api     # canned BharatCode stand-in on :4010 (MOCK_MODE=ok|malformed|error|slow)
+npm run e2e -- <url> "<example title>" [screenshot.png]   # needs Playwright + Chromium
+```
+
+## Code map
+
+- `src/lib/sql/` — lexer (comment/literal masking) and guard (what may run)
+- `src/lib/harness/` — datagen, measure, equivalence, verify (verdicts), narrate, pipeline
+- `src/lib/model/` — BharatCode client, prompt, Zod schemas, `/api/analyze` handler, rate limit
+- `src/worker/` — Web Worker running the pipeline on PGlite
+- `src/app/` — Next.js page, results UI, watchdog hook, API route
+- `src/lib/examples.ts` — bundled examples; expected verdicts asserted in `tests/pipeline.test.ts`
+
+## Workflow note
+
+Development happened in a cloud workspace; commits reach the owner's folder as a git bundle and the
+owner pushes from Windows. Never commit `.env.local` or `.planproof-sync*` files.

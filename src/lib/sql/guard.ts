@@ -53,13 +53,13 @@ export function classifyQuery(input: string): Classification {
     return { ok: false, category: 'unsupported', reason: 'Only read-only SELECT queries can be checked.' };
   }
   const words = keywords(s.sql);
+  if (words.includes('FOR') && /\bFOR\s+(UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b/i.test(maskSql(s.sql)))
+    return { ok: false, category: 'unsupported', reason: 'Row-locking clauses (FOR UPDATE/SHARE) are not supported.' };
   const bad = words.find((w) => FORBIDDEN_IN_QUERY.has(w));
   if (bad) return { ok: false, category: 'destructive', reason: `The query contains ${bad}, which modifies data.` };
   // In a plain query INTO can only mean SELECT … INTO, which creates a table.
   if (words.includes('INTO'))
     return { ok: false, category: 'destructive', reason: 'SELECT … INTO creates a table and is never run.' };
-  if (words.includes('FOR') && /\bFOR\s+(UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b/i.test(maskSql(s.sql)))
-    return { ok: false, category: 'unsupported', reason: 'Row-locking clauses (FOR UPDATE/SHARE) are not supported.' };
   const fn = forbiddenFunction(s.sql);
   if (fn) return { ok: false, category: 'destructive', reason: `The query calls ${fn}(), which is not allowed in the sandbox.` };
   return { ok: true, kind: 'query', sql: s.sql };
