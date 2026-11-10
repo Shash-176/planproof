@@ -2,9 +2,14 @@ BharatCode Build League — Round 1 entry
 
 Project: PlanProof
 Category: Coding & developer tools
-Summary: PlanProof checks AI-suggested SQL optimisations by running them. An agent on the
-BharatCode model API proposes indexes and query rewrites; a Postgres sandbox in the browser
-measures each one and confirms the rewritten query returns identical rows before recommending it.
-Model API: BharatCode (https://bharatcode.ai/api/model/v1), model qwen-3.8-27b
-Status on 10 Nov 2026: research, specification and roadmap published in docs/.
-Application code not started yet. See README.md for the exact status.
+Summary: Your AI suggested a SQL optimisation. Did it actually help? PlanProof proves it.
+Paste the index or rewrite an AI gave you. PlanProof runs it in a real Postgres in the browser
+(PGlite), measures it against the original query, and checks the results are identical on the
+main data, an edge-case dataset (NULLs, duplicates) and empty tables. Verdict: VERIFIED,
+INEFFECTIVE, UNSAFE or INVALID, with the evidence. The BharatCode model explains the plan,
+extracts SQL from pasted chat answers and proposes fixes; it is never treated as evidence.
+Model API: BharatCode (https://bharatcode.ai/api/model/v1), model qwen-3.8-27b, /responses
+with JSON-schema output.
+Status on 11 Nov 2026: verification pipeline and browser app working, 73 automated tests.
+BharatCode integration built and tested against a mock; first real API run and public
+deployment pending. See README.md and docs/PROGRESS.md for the exact status.
