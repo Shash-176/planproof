@@ -17,3 +17,8 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+next-env.d.ts
+*.tsbuildinfo
+.planproof-sync*
+test-results/
+playwright-report/
