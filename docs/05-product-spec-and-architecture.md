@@ -1,126 +1,136 @@
-# 05 — Preliminary product specification, architecture and stack
+# 05 — Product specification and architecture
 
-**Status: preliminary, for approval. Nothing here is implemented.**
-Items marked **[Verify]** are assumptions to confirm in the first hours of Phase 2.
+**Status: approved 10 November 2026.** Positioning updated per `07-community-and-judge-strategy.md`.
+Items marked **[Verify]** are assumptions still to be confirmed.
+
+> **"Your AI suggested a SQL optimisation. Did it actually help? PlanProof proves it."**
 
 ## 1. Product specification
 
 ### Users
-- Backend developers and students with a slow Postgres query and no DBA to ask
-- Learners who want to understand what a query plan is telling them
+- Developers who received an index or rewrite suggestion from ChatGPT, Copilot, Cursor or a
+  colleague and want to know whether it helps before shipping it
+- Students and learners who want to understand what a query plan is saying
 
-### Core flow
-1. **Load a database.** Pick a bundled example, or paste `CREATE TABLE` DDL and optionally sample rows.
-2. **Paste a query.**
-3. **Watch the agent.** A live trace shows each step: plan read, hypothesis, experiment, result.
-4. **Get proof cards.** Each accepted suggestion shows:
-   - before and after plan (cost, rows scanned, median time)
-   - equivalence result: "identical on N rows across K datasets"
-   - migration SQL and rollback SQL
-   - trade-offs: index size, extra write cost, when it would not help
-5. **Rejected ideas are shown too**, with the reason (no gain, or results differed).
+### Trust model (non-negotiable)
+The BharatCode model may **propose, explain, classify and extract**. Only deterministic execution in
+a real Postgres may **verify**. Nothing is labelled VERIFIED because the model says so.
+
+### Core workflow
+1. **Provide a database.** Pick the bundled example, or paste `CREATE TABLE` DDL. Optionally paste
+   seed SQL; otherwise PlanProof generates synthetic rows from the schema.
+2. **Provide the slow query.**
+3. **Optionally paste what your AI suggested.** SQL (`CREATE INDEX …` or a rewritten `SELECT`) or
+   prose copied from a chat.
+4. **PlanProof runs:**
+   1. loads the schema and data into an in-browser Postgres (PGlite) and runs `ANALYZE`
+   2. runs and measures the original query
+   3. extracts candidate optimisations — deterministically from pasted SQL, and via the BharatCode
+      model from prose; the model may also propose its own candidates
+   4. applies each candidate inside a transaction that is rolled back
+   5. runs and measures the optimised version
+   6. checks results are equivalent, on the main dataset and on edge-case datasets
+   7. gives a verdict with evidence
+5. **Plain-English explanation** of the before and after plans, generated deterministically from the
+   plan tree (core). The model may add a short "why" in plain language, labelled as AI-written.
+
+### Verdicts
+| Verdict | Meaning |
+|---|---|
+| **VERIFIED** | Results identical on every dataset tested, plan changed, and measured improvement above the threshold |
+| **INEFFECTIVE** | Results identical, but no meaningful improvement (or slower, or the planner ignored the index) |
+| **UNSAFE** | Results differ on at least one dataset, or the SQL tries to modify data |
+| **INVALID** | The candidate could not be run (syntax error, unknown column, unsupported statement) |
+
+INVALID is a fourth state added during implementation: invalid SQL is neither safe nor unsafe, and
+folding it into UNSAFE would overstate the danger.
+
+### Acceptance rule (initial values, tunable)
+VERIFIED requires all of:
+- equivalent on all datasets
+- plan shape differs from the baseline
+- median execution-time speedup ≥ 1.2×
+- planner cost **or** rows read by scans decreased
 
 ### MVP scope
-In: single `SELECT` statements; B-tree single and multi-column indexes; common rewrites (predicate
-sargability, `IN`/`EXISTS`, redundant `DISTINCT`, join order hints through restructuring, `LIMIT`
-pushdown); one bundled example database; proof card; eval suite.
+In: single read-only `SELECT`/`WITH` queries; B-tree indexes (single, multi-column, expression,
+partial); query rewrites; one bundled example database; synthetic data from DDL; verdicts with
+evidence; deterministic plan explanation.
 
-Out for MVP: write queries, production database connections, MySQL, user accounts, saved history.
+Out for MVP: write queries, production database connections, MySQL, accounts, saved history,
+share cards (P1), multi-turn tool-calling agent (P1).
 
 ### Non-goals
-- It does not connect to anyone's production database.
-- It does not claim formal equivalence; it reports empirical equivalence on test data.
-
-### Success measures
-- Benchmark pass rate (target: at least 70% of scenarios produce an accepted, verified improvement)
-- Zero accepted suggestions that change results on the benchmark
-- Time from page load to first proof card on the example: under 60 seconds when the API is not queueing
+- It never connects to anyone's production database.
+- It does not claim formal equivalence; it reports equivalence on the datasets it tested.
 
 ## 2. Architecture
 
 ```
-Browser                                              Server (one route)        BharatCode API
-┌───────────────────────────────────────────┐        ┌──────────────────┐      ┌──────────────┐
-│ UI (React)                                │        │ POST /api/turn   │      │ /responses   │
-│   query editor · live trace · proof cards │        │  - adds API key  │ ───► │ qwen-3.8-27b │
-│                                           │ ─────► │  - validates body│ ◄─── │ SSE stream   │
-│ Agent loop (client)                       │ ◄───── │  - 503 backoff   │      └──────────────┘
-│   holds history, replays it each turn     │  SSE   │  - rate limit    │
-│                                           │        └──────────────────┘
-│ Tool executor ──► Verification harness    │
-│                    ├ SQL guard            │
-│                    ├ measurement          │
-│                    └ equivalence checker  │
-│ Web Worker: PGlite (Postgres in WASM)     │
-└───────────────────────────────────────────┘
+Browser                                                    Server               BharatCode API
+┌──────────────────────────────────────────────────┐       ┌───────────────┐    ┌──────────────┐
+│ UI (React)                                       │       │ POST          │    │ POST         │
+│   inputs · progress · verdict cards · plans      │       │ /api/analyze  │    │ /responses   │
+│                                                  │       │  key from env │──► │ qwen-3.8-27b │
+│ Web Worker ───────────────────────────────────── │ ────► │  Zod-validated│◄── │ JSON schema  │
+│   pipeline: load → baseline → candidates →       │ ◄──── │  retry on 503 │    └──────────────┘
+│             verify → verdict                     │       │  timeout      │
+│   harness: guard · measure · equivalence         │       │  rate limit   │
+│   PGlite (Postgres in WebAssembly)               │       └───────────────┘
+└──────────────────────────────────────────────────┘
+  main thread watchdog terminates the worker if a database step hangs
 ```
 
-### Why the agent loop lives in the client
-The API is stateless and hosted tools are unsupported, so someone must hold the history and run
-the tools. The database is in the browser, so the tools run there. The server then only needs to
-do one model turn per request, which keeps it inside serverless time limits **[Verify]** and keeps
-user data off the server. The API key never reaches the browser.
+### Why this shape
+- **Database in the browser.** Zero install, user schemas never touch the server, and hosting is one
+  small function.
+- **Pipeline in a Web Worker.** Keeps the UI responsive; a runaway query can be stopped by terminating
+  the worker. [Verify: whether `statement_timeout` works in PGlite — the watchdog does not depend on it.]
+- **One model call per run in the MVP.** A single structured-output call (extract + propose + explain)
+  is enough for the vertical slice and is easier to make reliable on a 27B model. The multi-turn
+  tool-calling agent from the earlier draft moves to P1, once the harness is proven.
+- **Harness is isomorphic TypeScript.** The same code runs in the worker and in Node tests against a
+  real PGlite, so tests exercise the real database engine.
 
-### Model-facing tools (function tools, `strict: true`)
+### Verification harness (no model involved)
+- **Guard.** Lexical check after stripping comments and string literals: one statement only; queries
+  must start with `SELECT`/`WITH`/`VALUES`/`TABLE`; index candidates must be `CREATE [UNIQUE] INDEX`;
+  known write/DDL keywords rejected. Then the database enforces it: rewrites run in a
+  `READ ONLY` transaction, index candidates run in a transaction that is always rolled back.
+- **Measurement.** `EXPLAIN (ANALYZE, FORMAT JSON)`: one warm-up plus N timed runs; median execution
+  time; planner total cost; rows read by scan nodes (actual rows + rows removed by filter, × loops).
+- **Equivalence.** Same column count; rows normalised to canonical strings; multiset comparison by
+  default; ordered comparison when the original query has a top-level `ORDER BY`. Run on the main
+  dataset, on empty tables, and (for generated data) on an edge dataset with many NULLs and duplicates.
+- **Verdict.** Applies the acceptance rule above and records every number used.
 
-| Tool | Purpose | Executed by |
-|---|---|---|
-| `get_schema()` | Tables, columns, existing indexes, row counts | Worker |
-| `explain(sql)` | `EXPLAIN (FORMAT JSON)` plus measured run | Harness |
-| `sample_rows(table, n)` | Small sample so the model sees value shapes | Worker |
-| `try_index(ddl)` | Create candidate index, re-measure target query, report delta, then roll back | Harness |
-| `try_rewrite(sql)` | Measure rewrite and run equivalence check against the original | Harness |
-| `submit(recommendations)` | Final structured output; ends the loop | Client |
-
-Every tool argument is validated with a schema before execution. Tool results are compact JSON,
-with long plans summarised to stay within context.
-
-### Verification harness (deterministic, no model involved)
-- **SQL guard.** Only `SELECT`, `EXPLAIN`, `CREATE INDEX` are accepted; one statement per call;
-  runs inside a transaction that is rolled back; statement timeout. A parser-based check is
-  preferred **[Verify: a Postgres parser that runs in the browser]**; fallback is the
-  transaction + read-only settings.
-- **Measurement.** Planner total cost, rows scanned, and median wall time over N runs. Cost is the
-  headline number because WASM timings are noisy.
-- **Equivalence.** Run original and rewrite; compare as multisets via per-row hash, respecting
-  `ORDER BY` only when the query specifies one. Repeat on K seeded datasets including edge cases
-  (NULLs, duplicates, empty tables).
-- **Acceptance rule.** Accept only if equivalent on all datasets and cost improves beyond a threshold.
-
-### Reliability against the BharatCode API
-- `503` → exponential backoff with jitter, visible "model is busy, retrying" state
-- `response.failed` mid-stream → retry the turn from the last complete history
-- `status: "incomplete"` → never execute a partial tool call; retry with a larger output budget or
-  reduced reasoning effort
-- Hard limits: maximum steps per run, maximum tokens per run, per-IP request rate on the server
-- `x-request-id` logged for every call
+### BharatCode integration (`/api/analyze`)
+- `POST {baseURL}/responses`, model `qwen-3.8-27b`, `store: false`, `text.format` JSON schema.
+- Output parsed defensively (JSON, fenced JSON, first object in text) and validated with Zod.
+- `503` → exponential backoff with jitter (bounded); timeout via `AbortController`;
+  `status: "incomplete"` and `response.failed` treated as errors.
+- If the model fails, the run continues: pasted SQL is still verified and the UI says AI analysis
+  was unavailable.
+- Simple per-IP rate limit to protect the shared daily token allowance.
 
 ### Security and privacy
-- API key only in server environment variables; never in the repo or the bundle
-- User schema and query text are sent to the model; sample row values are sent only via
-  `sample_rows`, which can be switched off
-- The public demo is rate-limited so one visitor cannot exhaust the daily token allowance
+- API key only in server environment variables (`BHARATCODE_API_KEY`); never in the repo or bundle.
+- Sent to the model: schema DDL, query text, pasted suggestion, plan summary. Row values are not sent.
 
 ## 3. Technology stack
 
-| Layer | Choice | Reason |
-|---|---|---|
-| Language | TypeScript (strict) | One language across client, worker, server |
-| App | Next.js (App Router) | UI plus one streaming route; simple deploy |
-| Database sandbox | PGlite in a Web Worker | Real Postgres planner, no server |
-| Model client | OpenAI SDK with `baseURL` set to BharatCode | Documented as supported |
-| Model | `qwen-3.8-27b` via `/responses` | The model available on student access |
-| Validation | Zod | Tool arguments and structured output |
-| Tests | Vitest (unit), Playwright (one end-to-end smoke test) | Harness is pure logic and very testable |
-| CI | GitHub Actions: lint, typecheck, test | Visible engineering hygiene |
-| Hosting | Vercel or equivalent free tier **[Verify limits]** | Streaming route + static assets |
+| Layer | Choice |
+|---|---|
+| Language | TypeScript (strict) |
+| App | Next.js (App Router) |
+| Database sandbox | `@electric-sql/pglite` in a Web Worker |
+| Model client | `fetch` to the OpenAI-compatible `/responses` endpoint (no SDK needed for one call) |
+| Validation | Zod |
+| Tests | Vitest against real PGlite; Playwright smoke test in Chromium |
+| Hosting | To be decided with the owner (requires their account) |
 
-No database server, no auth, no vector store, no queue. Each would be weight without benefit here.
-
-## 4. Open questions to resolve first
-
-1. Does PGlite support `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` and how large a dataset is practical in a browser tab?
-2. How reliable is `qwen-3.8-27b` at multi-step tool calling with `strict` schemas? (Measure with the eval suite.)
-3. What are the context window and real rate limits? (Not published.)
-4. How long does student verification take?
-5. Will the organisers confirm whether commits after the deadline are considered?
+## 4. Open questions
+1. Real behaviour of `qwen-3.8-27b` with `text.format` JSON schema — needs a real API key to test.
+2. Context window and rate limits (not published).
+3. Practical dataset size in a browser tab (start: up to ~200k rows total).
+4. Hosting choice and free-tier limits.

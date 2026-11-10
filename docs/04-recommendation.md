@@ -1,6 +1,6 @@
 # 04 — Recommendation
 
-**Status: PROPOSED — awaiting approval. No application code has been written.**
+**Status: APPROVED on 10 Nov 2026 with repositioning — see `07-community-and-judge-strategy.md`.**
 
 ## Recommended project: PlanProof (working name)
 
