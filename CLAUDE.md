@@ -2,85 +2,69 @@
 
 Read this first in every session. Keep it short and current.
 
-## What this repo is
+## What this is
 
-**PlanProof** — entry for the **BharatCode Build League** (Round 1), submitted 10 Nov 2026.
-Public repo: https://github.com/Shash-176/planproof
+**PlanProof**: an open-source developer tool. "AI proposes. PostgreSQL proves."
+A user pastes a schema, a slow query and an AI-suggested optimisation. PlanProof runs everything in
+PostgreSQL compiled to WebAssembly (PGlite) in a browser Web Worker, measures with EXPLAIN ANALYZE,
+compares result sets on main, edge-case and empty datasets, and returns VERIFIED / INEFFECTIVE /
+UNSAFE / INVALID with evidence. An optional AI model (default Groq `openai/gpt-oss-120b`, fallback
+`qwen/qwen3.8-27b`) explains, extracts and proposes; it never decides.
 
-> "Your AI suggested a SQL optimisation. Did it actually help? PlanProof proves it."
-
-The user pastes a schema, a slow query and (optionally) what their AI suggested. The BharatCode model
-extracts, proposes and explains. A real Postgres (PGlite) verifies by execution. Verdicts:
-VERIFIED / INEFFECTIVE / UNSAFE / INVALID.
+Repo: https://github.com/Shash-176/planproof · Started as a BharatCode Build League entry (history in `docs/history/`).
 
 ## Current state
 
-See `docs/PROGRESS.md` for the live P0 checklist. Update it after every meaningful milestone.
+See `docs/PROGRESS.md` (live status) and `CHANGELOG.md`. Version `1.0.0-rc.1`.
 
-## Hard facts (verified from bharatcode.ai on 10 Nov 2026)
+## Rules
 
-- Judging: GitHub stars + website votes + judges. Weights unpublished. No vote/star manipulation.
-- Submission: public repo with `BharatCode.txt` in root of default branch.
-- API base URL: `https://bharatcode.ai/api/model/v1` (OpenAI-compatible).
-  Endpoints: `/responses`, `/chat/completions`, `/models`. Bearer key from bharatcode.ai/account.
-- Model: `qwen-3.8-27b` (students: 10M tokens/day). `deepseek-v4.1-flash` is Pro only.
-- API is **stateless** (`store:true` / `previous_response_id` → 400).
-- No hosted tools, no embeddings documented, no audio/video/file input. Images supported.
-- Shared capacity: handle `503`, `response.failed`, `status:"incomplete"`.
-- Max output 32,000 tokens including reasoning.
-- The cloud build environment and the owner's VM shell **cannot reach bharatcode.ai** (proxy 403).
-  Real API calls must run on the owner's machine or the deployed host.
-
-## Engineering rules
-
-1. **Never commit secrets.** `BHARATCODE_API_KEY` lives only in `.env.local` / host env vars.
-2. **The model is not the source of truth.** It may propose, extract, classify, explain. Only
-   deterministic execution may label something VERIFIED.
-3. **Do not overclaim.** "Identical on N rows across K datasets", never "proven equivalent".
-   Never publish a benchmark that was not measured; include the command that produced it.
-4. **README marks a feature implemented only after it was tested.**
-5. **Never push a broken or misleading `main`.** The repo is publicly submitted.
-6. Small commits. Tests for guard, equivalence, measurement and verdicts are mandatory.
-
-## Documents
-
-| File | Contents |
-|---|---|
-| `docs/01-hackathon-rules-and-api.md` | Rules, judging, API capabilities |
-| `docs/02-idea-discovery.md` | 25 ideas across 8 categories |
-| `docs/03-shortlist-comparison.md` | Shortlist scoring |
-| `docs/04-recommendation.md` | Original recommendation and weaknesses |
-| `docs/05-product-spec-and-architecture.md` | **Current** spec, architecture, stack |
-| `docs/06-roadmap.md` | P0/P1 milestones and risks |
-| `docs/07-community-and-judge-strategy.md` | Reassessment against stars/votes/judges; positioning |
-| `docs/PROGRESS.md` | Live progress log |
-
-## Stack
-
-TypeScript · Next.js (App Router) · PGlite in a Web Worker · `fetch` to BharatCode `/responses` ·
-Zod · Vitest (real PGlite in Node) · Playwright smoke test.
+1. **The model is not the source of truth.** Only deterministic execution may label anything VERIFIED.
+   Model output is untrusted input: validate it and send it through the same guard and execution.
+2. **Never commit secrets.** Keys live in `.env.local` (git-ignored) or host environment variables.
+3. **Never fabricate numbers.** Benchmarks come from `npm run eval` (writes `docs/benchmarks/`).
+   README claims must be backed by a test or that file.
+4. **Never push a broken `main`.** Run `npm run lint && npm run typecheck && npm test && npm run build`.
+5. Keep the architecture small: no auth, no database server, no queue, no vector store unless a real
+   requirement appears.
+6. Update `docs/PROGRESS.md` after meaningful milestones; `docs/RESUME-EVIDENCE.md` when a measurable
+   outcome changes.
 
 ## Commands
 
 ```bash
-npm run dev          # local app on :3000 (needs .env.local for AI analysis)
-npm test             # vitest: guard, equivalence, API client, pipeline on real PGlite (~70 s)
+npm run dev            # http://localhost:3000 (AI needs GROQ_API_KEY in .env.local)
+npm run lint
 npm run typecheck
+npm test               # vitest, ~90 s: real PGlite for pipeline/datagen tests
 npm run build
-npm run mock:api     # canned BharatCode stand-in on :4010 (MOCK_MODE=ok|malformed|error|slow)
-npm run e2e -- <url> "<example title>" [screenshot.png]   # needs Playwright + Chromium
+npm run eval           # evaluation suite → docs/benchmarks/RESULTS.md (~5 min)
+npm run mock:ai        # canned OpenAI-compatible endpoint on :4010
+npm run e2e -- <url> [--demo|"<example title>"|--runaway] [shot.png] [--mobile]
 ```
+
+Browser tests against the mock: `npm run build`, then
+`AI_CHAIN=custom:mock AI_CUSTOM_BASE_URL=http://127.0.0.1:4010/v1 AI_CUSTOM_API_KEY=test npm start`.
 
 ## Code map
 
-- `src/lib/sql/` — lexer (comment/literal masking) and guard (what may run)
-- `src/lib/harness/` — datagen, measure, equivalence, verify (verdicts), narrate, pipeline
-- `src/lib/model/` — BharatCode client, prompt, Zod schemas, `/api/analyze` handler, rate limit
-- `src/worker/` — Web Worker running the pipeline on PGlite
-- `src/app/` — Next.js page, results UI, watchdog hook, API route
-- `src/lib/examples.ts` — bundled examples; expected verdicts asserted in `tests/pipeline.test.ts`
+- `src/lib/sql/` — lexer (comment/literal masking), guard (what may run)
+- `src/lib/harness/` — datagen, measure, plan, equivalence, verify (verdicts), narrate, pipeline
+- `src/lib/ai/` — provider adapter, config/presets, analysis service, handler, client, schema, prompt
+- `src/lib/watchdog.ts` — runaway-query protection (PGlite ignores statement_timeout)
+- `src/worker/` — Web Worker hosting PGlite and the pipeline
+- `src/app/` — page, components, `useVerifier`, `/api/analyze` route
+- `eval/` — evaluation scenarios and runner
+- `tests/` — Vitest suites
 
-## Workflow note
+## Environment facts
 
-Development happened in a cloud workspace; commits reach the owner's folder as a git bundle and the
-owner pushes from Windows. Never commit `.env.local` or `.planproof-sync*` files.
+- The cloud build environment cannot reach AI providers (proxy 403). Real AI calls must be tested on the
+  owner's machine or the deployed site.
+- Commits made in the cloud workspace reach the owner's folder `F:\BharatCode-Build-League` as a git
+  bundle; the owner pushes from Windows. Never commit `.env.local` or `.planproof-sync*`.
+
+## Documents
+
+`docs/ARCHITECTURE.md` · `docs/AI-PROVIDER.md` · `docs/DEPLOYMENT.md` · `SECURITY.md` ·
+`docs/RESUME-EVIDENCE.md` · `docs/INTERVIEW-GUIDE.md` · `docs/benchmarks/RESULTS.md` · `docs/history/`

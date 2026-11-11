@@ -1,0 +1,47 @@
+# Changelog
+
+All notable changes to PlanProof. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and versions follow [Semantic Versioning](https://semver.org/).
+
+## [1.0.0-rc.1] — 2026-11-11
+
+First release candidate as an independent open-source tool. Not yet deployed, and the real AI
+provider has not yet been exercised with a live key (all AI paths are covered by mocked tests).
+
+### Added
+- Provider-neutral AI layer: one OpenAI-compatible adapter, presets for Groq (default), Gemini,
+  OpenRouter and any custom endpoint, and an ordered fallback chain (`AI_CHAIN`).
+- Default chain `groq:openai/gpt-oss-120b → groq:qwen/qwen3.8-27b` with strict JSON-schema output.
+- `GET /api/analyze` status endpoint; the UI shows which model is used and what is sent to it.
+- Redesigned interface: one-click demo, four runnable examples, verdict cards with stat tiles,
+  side-by-side plan trees, plain-English steps, copyable migration and rollback SQL, progress with
+  cancel, stage-specific error help, and a responsive layout.
+- Security headers including a Content Security Policy compatible with PGlite.
+- Same-origin check, body size limit and per-instance rate limit on `/api/analyze`.
+- Watchdog extracted into a tested module; `?dbStepLimitMs=` for testing.
+- Evaluation suite (`npm run eval`): 13 scenarios, repeated runs, results in `docs/benchmarks/`.
+- Tests for generated-data edge cases, unexpected AI output, provider failures and the watchdog.
+- ESLint (Next.js core-web-vitals + TypeScript rules); CI runs lint, typecheck, tests and build.
+- Documentation: architecture with Mermaid diagrams, AI provider decision, security model, deployment
+  guide, resume evidence and interview guide.
+
+### Changed
+- UNSAFE verdicts no longer repeat performance notes from the main dataset.
+
+### Removed
+- BharatCode model API client and the hackathon `BharatCode.txt` (kept under `docs/history/`).
+
+### Fixed
+- An unexpected exception inside a provider call could include internal error text in the
+  `/api/analyze` response. Unknown errors now return a generic message.
+
+## [0.1.0] — 2026-11-10
+
+Hackathon version (BharatCode Build League, Round 1).
+
+### Added
+- Deterministic verification harness on PGlite: guard, rolled-back trials, EXPLAIN ANALYZE
+  measurement, result equivalence on main, edge-case and empty datasets, verdicts.
+- Synthetic data generation from the catalog, seeded with query literals.
+- Browser app with four examples; BharatCode `/responses` integration.
+- 73 automated tests.

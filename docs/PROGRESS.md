@@ -1,51 +1,56 @@
 # Progress log
 
-Newest first. Only things that were actually run and tested are marked done.
+Newest first. Only things that were run and observed are marked done.
 
-## 10–11 Nov 2026 — First end-to-end vertical slice
+## 11 Nov 2026 — v1.0.0-rc.1: independent open-source release candidate
 
-Working and tested:
-- Verification harness on PGlite (Postgres 18.6 in WebAssembly): guard, rolled-back trials,
-  EXPLAIN ANALYZE measurement, type-aware result equivalence, verdicts with evidence.
-- Equivalence re-checked on an edge-case dataset (NULLs, duplicates, query literals mixed in) and on
-  empty tables. The NOT IN → NOT EXISTS example is only caught by the edge-case dataset.
-- Synthetic data from the catalog (FKs, identity, enum, varchar, uuid, composite keys).
-- Deterministic plain-English plan narration.
-- `/api/analyze`: BharatCode `/responses` client with JSON-schema output, Zod validation, retries,
-  timeouts, rate limit. **Tested against mocks only.**
-- Browser app (Next.js 16, pipeline in a Web Worker, watchdog). Production build tested in Chromium
-  against a local mock API: all four examples give their intended verdicts in about 7–10 s; malformed
-  model output and persistent 503s degrade to a clear message while pasted SQL is still verified.
-- 73 automated tests, passing twice in a row.
+### Baseline audit (start of session)
+- Local `main` and GitHub `main` both at `0f3b87b`; working tree clean.
+- `npm test`: **73 tests passed** (4 files). `tsc --noEmit`: clean. `next build`: passed. `npm audit`: 0 vulnerabilities.
+- Browser smoke test against the mock API: demo VERIFIED, NULL-trap example UNSAFE, no console errors.
+- Every AI provider host (Groq, Gemini, OpenRouter, Cerebras, Cloudflare, Hugging Face, GitHub Models,
+  Mistral) is blocked from the build environment by the network proxy (HTTP 403). Real provider calls
+  cannot be tested from here.
 
-Findings during the build:
-- PGlite ignores `statement_timeout` (a 3 s `pg_sleep` ran to completion) → worker watchdog.
-- WASM timings vary ~15% run to run → VERIFIED needs ≥ 1.5× and lower cost or fewer rows read;
-  "index not used" and "same plan" are decided from the plan, not from timings.
-- Generated text values never matched literals like `'pending'`, which hid the NULL trap → literals
-  from the query and suggestions are mixed into generated text columns.
-- Neither the build environment nor the owner's VM shell can reach bharatcode.ai (proxy 403).
+### Done this session
+- **AI provider layer** replaces BharatCode: OpenAI-compatible adapter, presets (Groq default, Gemini,
+  OpenRouter, custom), fallback chain, retries/deadline, defensive parsing, Zod validation on server and
+  client, `GET /api/analyze` status. Decision record: `docs/AI-PROVIDER.md`.
+- **Bug fixed:** unexpected exceptions could leak internal error text through `/api/analyze`.
+- **UI rebuilt:** one-click demo, runnable examples, stat tiles, side-by-side plan trees, plain-English
+  steps, copyable migration/rollback, progress with cancel, stage-specific errors, mobile layout.
+- **Watchdog** extracted and unit-tested; verified in Chromium that a 200k × 200k cross join is stopped.
+- **Security headers / CSP** (works with PGlite: `'wasm-unsafe-eval'`); same-origin check; body limit;
+  per-instance rate limit. Review in `SECURITY.md`.
+- **Tests:** 73 → 115 (generated-data edge cases, unexpected AI output, provider failures, watchdog).
+- **Evaluation suite** `npm run eval`: 13 scenarios × 5 runs; results in `docs/benchmarks/RESULTS.md`.
+- **ESLint** added (2 real findings fixed); minimatch override clears a dev-only advisory; audit 0.
+- **CI:** lint, typecheck, tests, build, audit, plus a browser job (demo, NULL trap, mobile, runaway).
+- **Docs:** README, ARCHITECTURE (Mermaid, validated with mmdc), AI-PROVIDER, DEPLOYMENT, SECURITY,
+  CHANGELOG, RESUME-EVIDENCE, INTERVIEW-GUIDE; hackathon documents moved to `docs/history/`.
 
-Not done / blocked:
-- **P0-G real API call** — needs the owner's API key and a machine that can reach bharatcode.ai.
-- **P0-J deployment** — needs the owner's choice of host and account.
+### Not done / needs the owner
+- **Real AI provider call**: needs a Groq API key and a machine that can reach Groq (owner's PC or Vercel).
+- **Deployment**: needs the owner's Vercel account (steps in `docs/DEPLOYMENT.md`).
+- **CI result on GitHub**: workflow validated locally step by step; first real run happens on push.
 
-## 10 Nov 2026 — Approval and documentation update
+## 10–11 Nov 2026 — v0.1.0: hackathon vertical slice
 
-- Round 1 entry submitted; repo public at https://github.com/Shash-176/planproof
-- Project approved with repositioning (`docs/07-community-and-judge-strategy.md`).
+- Verification harness on PGlite, edge/empty dataset checks, synthetic data, plain-English narration.
+- BharatCode `/responses` integration (mock-tested only).
+- Browser app with four examples; 73 tests.
+- Findings: PGlite ignores `statement_timeout`; WASM timings vary ~15%; generated text never matched
+  query literals, hiding the NULL trap (fixed by seeding literals).
 
-## P0 status
+## Status
 
-| ID | Milestone | Status |
-|---|---|---|
-| P0-A | App boots locally | Done — `next build` and `next start` tested |
-| P0-B | Controlled PGlite execution | Done — tested |
-| P0-C | Original query execution | Done — tested |
-| P0-D | Candidate execution | Done — tested |
-| P0-E | Result equivalence | Done — tested |
-| P0-F | Before/after measurement | Done — tested |
-| P0-G | Real BharatCode integration | Built and mock-tested; **real call not yet made** |
-| P0-H | End-to-end workflow | Done — tested in Chromium with mock API |
-| P0-I | Tests on critical logic | Done — 73 tests |
-| P0-J | Deployed publicly | Not started — needs owner's hosting account |
+| Area | Status |
+|---|---|
+| Verification engine | Done, tested |
+| AI provider layer | Done, mock-tested; **real call pending** (owner's key) |
+| UI / one-click demo | Done, tested in Chromium (desktop and mobile) |
+| Tests | 115 passing |
+| Evaluation | 13 scenarios × 5 runs, results committed |
+| Lint / typecheck / build / audit | Passing / clean / passing / 0 vulnerabilities |
+| CI | Configured; first GitHub run on next push |
+| Deployment | Prepared for Vercel; **not deployed** (owner's account) |
