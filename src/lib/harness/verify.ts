@@ -240,7 +240,7 @@ export async function checkEquivalenceOn(
       dataset === 'edge'
         ? 'The edge-case dataset has many NULLs and duplicate values. The rewrite only looked correct on the main data.'
         : 'With empty tables the rewrite returns a different answer.',
-      ...result.reasons.filter((r) => !r.startsWith('Tested on')),
+      // performance notes from the main dataset no longer matter once results differ
     ],
     equivalence: [...result.equivalence, eq],
   };

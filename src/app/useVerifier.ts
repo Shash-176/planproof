@@ -1,58 +1,67 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PipelineInput, ProgressEvent } from '@/lib/harness/pipeline';
 import type { Report } from '@/lib/harness/types';
+import { DEFAULT_DB_STEP_LIMIT_MS, limitFromSearch, Watchdog } from '@/lib/watchdog';
 import type { FromWorker } from '@/worker/protocol';
-
-/** A database step that runs longer than this is stopped. PGlite ignores statement_timeout. */
-export const DB_STEP_LIMIT_MS = 45_000;
 
 export type RunState =
   | { status: 'idle' }
-  | { status: 'running'; steps: ProgressEvent[] }
+  | { status: 'running'; steps: ProgressEvent[]; startedAt: number }
   | { status: 'done'; report: Report; steps: ProgressEvent[] }
   | { status: 'error'; message: string; stage?: string; steps: ProgressEvent[] };
 
 export function useVerifier() {
   const [state, setState] = useState<RunState>({ status: 'idle' });
   const workerRef = useRef<Worker | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dogRef = useRef<Watchdog | null>(null);
+  const limitRef = useRef(DEFAULT_DB_STEP_LIMIT_MS);
+
+  useEffect(() => {
+    limitRef.current = limitFromSearch(window.location.search);
+  }, []);
 
   const stop = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = null;
+    dogRef.current?.disarm();
+    dogRef.current = null;
     workerRef.current?.terminate();
     workerRef.current = null;
   }, []);
+
+  useEffect(() => stop, [stop]);
 
   const run = useCallback(
     (input: PipelineInput) => {
       stop();
       const steps: ProgressEvent[] = [];
-      setState({ status: 'running', steps: [] });
+      const startedAt = Date.now();
+      setState({ status: 'running', steps: [], startedAt });
+
+      if (typeof WebAssembly === 'undefined' || typeof Worker === 'undefined') {
+        setState({ status: 'error', stage: 'browser', message: 'This browser does not support WebAssembly or Web Workers, which PlanProof needs to run Postgres.', steps });
+        return;
+      }
+
       const worker = new Worker(new URL('../worker/pipeline.worker.ts', import.meta.url), { type: 'module' });
       workerRef.current = worker;
-
-      const arm = (p: ProgressEvent) => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        if (!p.db) return;
-        timerRef.current = setTimeout(() => {
-          stop();
-          setState({
-            status: 'error',
-            message: `A database step ("${p.label}") ran for more than ${DB_STEP_LIMIT_MS / 1000} seconds, so PlanProof stopped it. Try a smaller dataset or a simpler query.`,
-            steps: [...steps],
-          });
-        }, DB_STEP_LIMIT_MS);
-      };
+      const dog = new Watchdog(limitRef.current, (label, limit) => {
+        stop();
+        setState({
+          status: 'error',
+          stage: 'timeout',
+          message: `“${label}” ran for more than ${Math.round(limit / 1000)} seconds, so PlanProof stopped it. Postgres in the browser cannot cancel a query, so the whole sandbox was shut down.`,
+          steps: [...steps],
+        });
+      });
+      dogRef.current = dog;
 
       worker.onmessage = (e: MessageEvent<FromWorker>) => {
         const m = e.data;
         if (m.type === 'progress') {
           steps.push(m.progress);
-          arm(m.progress);
-          setState({ status: 'running', steps: [...steps] });
+          dog.observe(m.progress);
+          setState({ status: 'running', steps: [...steps], startedAt });
         } else if (m.type === 'result') {
           stop();
           setState({ status: 'done', report: m.report, steps: [...steps] });
@@ -63,13 +72,18 @@ export function useVerifier() {
       };
       worker.onerror = (e) => {
         stop();
-        setState({ status: 'error', message: `The verification worker crashed: ${e.message || 'unknown error'}.`, steps: [...steps] });
+        setState({ status: 'error', stage: 'worker', message: e.message || 'The verification sandbox crashed.', steps: [...steps] });
       };
-      arm({ step: 'setup', label: 'Starting Postgres in your browser', db: true });
+      dog.observe({ label: 'Starting Postgres', db: true });
       worker.postMessage({ type: 'run', input });
     },
     [stop],
   );
 
-  return { state, run, cancel: () => { stop(); setState({ status: 'idle' }); } };
+  const cancel = useCallback(() => {
+    stop();
+    setState({ status: 'idle' });
+  }, [stop]);
+
+  return { state, run, cancel };
 }
