@@ -1,7 +1,7 @@
 {
   "env": {
-    "date": "2026-11-11T04:05:18.270Z",
-    "planproof": "1.0.0-rc.1",
+    "date": "2026-11-11T06:15:45.589Z",
+    "planproof": "1.0.0",
     "pglite": "0.5.16",
     "node": "v22.23.4",
     "platform": "linux x64",
@@ -33,9 +33,9 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 172.4142857142857,
-        "median": 186.890625,
-        "max": 207.8135593220339
+        "min": 128.6,
+        "median": 172.6103896103896,
+        "max": 219.92857142857144
       },
       "rowsRead": {
         "before": 200000,
@@ -46,7 +46,7 @@
         "after": 42.47
       },
       "failedOn": null,
-      "medianElapsedMs": 4014,
+      "medianElapsedMs": 4073,
       "why": "An index that works"
     },
     {
@@ -63,20 +63,20 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.9399157540016849,
-        "median": 1.0004455831569568,
-        "max": 1.1506957286203654
+        "min": 0.954663777455712,
+        "median": 0.9721556280869991,
+        "max": 1.0779735143896991
       },
       "rowsRead": {
         "before": 200000,
         "after": 200000
       },
       "planCost": {
-        "before": 4561.86,
-        "after": 4564.03
+        "before": 4563.93,
+        "after": 4564.73
       },
       "failedOn": null,
-      "medianElapsedMs": 4822,
+      "medianElapsedMs": 4894,
       "why": "An index Postgres ignores"
     },
     {
@@ -93,20 +93,20 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.870534035351636,
-        "median": 1.0047367659820654,
-        "max": 1.0822855166621377
+        "min": 0.6894783818004442,
+        "median": 0.8935951772974965,
+        "max": 0.9984913105289117
       },
       "rowsRead": {
         "before": 220000,
         "after": 220000
       },
       "planCost": {
-        "before": 4688.04,
-        "after": 4764.1
+        "before": 4695.61,
+        "after": 4764.72
       },
       "failedOn": "main",
-      "medianElapsedMs": 4062,
+      "medianElapsedMs": 4219,
       "why": "A JOIN rewrite that duplicates rows"
     },
     {
@@ -123,20 +123,20 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.7015483759352971,
-        "median": 0.8708665906499431,
-        "max": 0.9614335402032326
+        "min": 0.7089169798428424,
+        "median": 0.8207226521648191,
+        "max": 0.845612491752804
       },
       "rowsRead": {
         "before": 220000,
         "after": 220000
       },
       "planCost": {
-        "before": 4590.65,
-        "after": 4912.03
+        "before": 4592.77,
+        "after": 4928.46
       },
       "failedOn": "edge",
-      "medianElapsedMs": 4550,
+      "medianElapsedMs": 4213,
       "why": "A NOT EXISTS rewrite that breaks on NULLs"
     },
     {
@@ -153,9 +153,9 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 332,
-        "median": 416.9285714285714,
-        "max": 1042.5333333333333
+        "min": 220.76190476190476,
+        "median": 362.0625,
+        "max": 542.8823529411764
       },
       "rowsRead": {
         "before": 20000,
@@ -166,7 +166,7 @@
         "after": 8.3
       },
       "failedOn": null,
-      "medianElapsedMs": 3950,
+      "medianElapsedMs": 4044,
       "why": "lower(name) cannot use a plain index; an expression index on lower(name) matches the predicate exactly."
     },
     {
@@ -183,20 +183,20 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 269.24691358024694,
-        "median": 318.45714285714286,
-        "max": 335.46969696969694
+        "min": 269.3181818181818,
+        "median": 324.4166666666667,
+        "max": 394.7878787878788
       },
       "rowsRead": {
         "before": 200000,
         "after": 50
       },
       "planCost": {
-        "before": 4653.46,
-        "after": 22.07
+        "before": 4646.62,
+        "after": 23.51
       },
       "failedOn": null,
-      "medianElapsedMs": 3847,
+      "medianElapsedMs": 4118,
       "why": "'pending' is a small slice of orders; a partial index ordered by created_at serves the filter, sort and LIMIT."
     },
     {
@@ -213,9 +213,9 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.4765320762451323,
-        "median": 0.9905312993161494,
-        "max": 1.7916321458160729
+        "min": 0.9109535066981875,
+        "median": 1.019867549668874,
+        "max": 1.067170445004198
       },
       "rowsRead": {
         "before": 20000,
@@ -226,7 +226,7 @@
         "after": 420.26
       },
       "failedOn": null,
-      "medianElapsedMs": 3650,
+      "medianElapsedMs": 3966,
       "why": "The filter is on city alone; an index leading with created_at cannot be used for it."
     },
     {
@@ -243,9 +243,9 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.9886498894745792,
-        "median": 1.012863976222542,
-        "max": 1.0182961945687325
+        "min": 0.9440531927450132,
+        "median": 0.9806612354662659,
+        "max": 1.0682101587829413
       },
       "rowsRead": {
         "before": 200000,
@@ -256,7 +256,7 @@
         "after": 4640
       },
       "failedOn": null,
-      "medianElapsedMs": 3995,
+      "medianElapsedMs": 4215,
       "why": "Swapping the order of AND conditions does not change the plan."
     },
     {
@@ -273,9 +273,9 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.6521739130434782,
-        "median": 0.717948717948718,
-        "max": 0.8395061728395062
+        "min": 0.6470588235294117,
+        "median": 0.7424242424242424,
+        "max": 0.7922077922077922
       },
       "rowsRead": {
         "before": 99,
@@ -286,7 +286,7 @@
         "after": 10.35
       },
       "failedOn": "main",
-      "medianElapsedMs": 3689,
+      "medianElapsedMs": 3404,
       "why": "Several customers share a city; adding DISTINCT collapses rows the original returns."
     },
     {
@@ -303,9 +303,9 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 0.9917037037037038,
-        "median": 1.0036604361370718,
-        "max": 1.269417475728155
+        "min": 0.9950280673616679,
+        "median": 1.0136849465587854,
+        "max": 1.0865983524211373
       },
       "rowsRead": {
         "before": 200000,
@@ -316,7 +316,7 @@
         "after": 4140.18
       },
       "failedOn": "main",
-      "medianElapsedMs": 3783,
+      "medianElapsedMs": 3974,
       "why": "The rewrite returns the oldest orders instead of the newest: the ORDER BY direction is part of the answer."
     },
     {
@@ -333,20 +333,20 @@
       "matches": 5,
       "stable": true,
       "speedup": {
-        "min": 1.0096107640557426,
-        "median": 1.0382735309412376,
-        "max": 1.0623249299719888
+        "min": 1.0229125216609973,
+        "median": 1.2218471337579617,
+        "max": 1.5808016464131713
       },
       "rowsRead": {
         "before": 200000,
         "after": 200000
       },
       "planCost": {
-        "before": 4177.79,
-        "after": 4177.79
+        "before": 4177.63,
+        "after": 4177.63
       },
       "failedOn": "empty",
-      "medianElapsedMs": 4138,
+      "medianElapsedMs": 3832,
       "why": "count(*) with GROUP BY returns no row on empty tables, where the original returns 0."
     },
     {
@@ -372,7 +372,7 @@
         "after": null
       },
       "failedOn": null,
-      "medianElapsedMs": 3565,
+      "medianElapsedMs": 3548,
       "why": "An assistant suggesting DROP or DELETE must never have it executed."
     },
     {
@@ -398,7 +398,7 @@
         "after": null
       },
       "failedOn": null,
-      "medianElapsedMs": 3570,
+      "medianElapsedMs": 3588,
       "why": "The suggested index references a column that does not exist."
     }
   ]

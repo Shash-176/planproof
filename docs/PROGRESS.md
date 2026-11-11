@@ -20,6 +20,10 @@ Newest first. Only things that were run and observed are marked done.
   in Chromium (isolated, 0.01 ms timings, PGlite and all examples working, no console/CSP errors). **Not yet verified
   in production: needs the push to deploy.**
 - **Tests:** 120 passing (7 files). Lint, typecheck, production build: clean. `npm audit`: 0 vulnerabilities.
+- **Evaluation (v1.0.0):** 65 / 65 runs matched; 5 / 5 semantic regressions caught every run; no verdict varied.
+- **Secrets:** a production build made with a fake `GROQ_API_KEY` contains the value in none of the 27 client files
+  under `.next/static` (worker chunk included) nor anywhere else in `.next`; the variable name and the Groq hostname
+  appear in no client file. Full git history: no key patterns; key variables only ever assigned placeholder values.
 - **Version:** 1.0.0.
 
 

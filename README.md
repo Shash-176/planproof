@@ -86,7 +86,7 @@ Full diagrams, the deterministic/probabilistic boundary and the verdict flow: [d
 `npm run eval` runs a fixed set of scenarios several times each on a fresh database and writes
 [docs/benchmarks/RESULTS.md](docs/benchmarks/RESULTS.md). Expected verdicts were assigned from SQL semantics before running.
 
-Latest run (2026-11-11, 13 scenarios × 5 runs, PGlite 0.5.16, Node v22.23.4):
+Latest run (2026-11-11, PlanProof 1.0.0, 13 scenarios × 5 runs, PGlite 0.5.16, Node v22.23.4):
 
 - **65 / 65** runs reached the expected verdict; no scenario's verdict varied between runs.
 - **5 / 5** result-changing rewrites were flagged UNSAFE in every run, including one that only fails on the NULL-heavy edge dataset and one that only fails on empty tables.
@@ -94,16 +94,16 @@ Latest run (2026-11-11, 13 scenarios × 5 runs, PGlite 0.5.16, Node v22.23.4):
 
 | Scenario | Speed-up min / median / max | Rows read before → after | Planner cost before → after |
 |---|---|---|---|
-| index-works | 172× / 187× / 208× | 200,000 → 9 | 4,140 → 42 |
-| expression-index | 332× / 417× / 1043× | 20,000 → 1 | 464 → 8 |
-| partial-index-rare-status | 269× / 318× / 335× | 200,000 → 50 | 4,653 → 22 |
+| index-works | 129× / 173× / 220× | 200,000 → 9 | 4,140 → 42 |
+| expression-index | 221× / 362× / 543× | 20,000 → 1 | 464 → 8 |
+| partial-index-rare-status | 269× / 324× / 395× | 200,000 → 50 | 4,647 → 24 |
 
 These are PostgreSQL-in-WebAssembly timings on synthetic data on one machine. They show the size of an effect,
 not what the same change does on a production server. Methodology is in the results file.
 
 ## Testing
 
-**115 automated tests**, all passing, plus a browser smoke test in CI.
+**120 automated tests**, all passing, plus a browser smoke test in CI.
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -111,7 +111,8 @@ not what the same change does on a production server. Methodology is in the resu
 | `tests/datagen.test.ts` | 10 | Synthetic data generation edge cases (real PGlite) |
 | `tests/equivalence.test.ts` | 10 | Result comparison: duplicates, NULLs, ordering, types |
 | `tests/guard.test.ts` | 22 | Lexer and SQL guard |
-| `tests/pipeline.test.ts` | 30 | Full verification pipeline on real PGlite: verdicts, destructive SQL, untrusted AI output |
+| `tests/pipeline.test.ts` | 31 | Full verification pipeline on real PGlite: verdicts, destructive SQL, untrusted AI output, coarse clocks |
+| `tests/timer.test.ts` | 4 | Clock-resolution estimation (coarse, fine, frozen, real clocks) |
 | `tests/watchdog.test.ts` | 5 | Runaway-query watchdog (fake timers) |
 
 ```bash

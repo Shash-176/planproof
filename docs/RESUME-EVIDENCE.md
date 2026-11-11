@@ -9,7 +9,7 @@ _Last updated: 11 Nov 2026, version 1.0.0._
 
 | Item | Value | Evidence |
 |---|---|---|
-| Automated tests | **115 passing** in 6 files | `npm test`; per-suite counts below |
+| Automated tests | **120 passing** in 7 files | `npm test`; per-suite counts below |
 | Evaluation | **65 / 65 runs** matched the expected verdict (13 scenarios × 5 runs); no scenario's verdict varied | `docs/benchmarks/RESULTS.md`, `results.json` |
 | Semantic regressions caught | **5 / 5** result-changing scenarios flagged UNSAFE in every run | same |
 | Lint / types | ESLint (Next.js + typescript-eslint) clean; `tsc --strict` clean | `npm run lint`, `npm run typecheck` |
@@ -43,15 +43,15 @@ All timings: PostgreSQL in WebAssembly (PGlite), Node v22.23.4, Intel(R) Xeon(R)
 
 | Scenario | Speed-up min / median / max | Rows read before → after | Planner cost before → after |
 |---|---|---|---|
-| index-works | 172× / 187× / 208× | 200,000 → 9 | 4,140 → 42 |
-| expression-index | 332× / 417× / 1043× | 20,000 → 1 | 464 → 8 |
-| partial-index-rare-status | 269× / 318× / 335× | 200,000 → 50 | 4,653 → 22 |
+| index-works | 129× / 173× / 220× | 200,000 → 9 | 4,140 → 42 |
+| expression-index | 221× / 362× / 543× | 20,000 → 1 | 464 → 8 |
+| partial-index-rare-status | 269× / 324× / 395× | 200,000 → 50 | 4,647 → 24 |
 
 Deterministic (do not vary between runs): rows read and planner cost, shown in the results file.
 
 **Quote rows read, not speed-up ratios.** When the optimised query takes a fraction of a millisecond, small timing
-noise produces large swings in the ratio (expression-index: 332× to 1,043× across runs). "200,000 rows read → 9"
-is exact and reproducible; "~187× faster in WebAssembly on synthetic data" needs all of its qualifiers.
+noise produces large swings in the ratio (expression-index: 221× to 543× across runs). "200,000 rows read → 9"
+is exact and reproducible; "~173× faster in WebAssembly on synthetic data" needs all of its qualifiers.
 
 ## Test suites
 
@@ -61,7 +61,8 @@ is exact and reproducible; "~187× faster in WebAssembly on synthetic data" need
 | `tests/datagen.test.ts` | 10 | Synthetic data generation edge cases (real PGlite) |
 | `tests/equivalence.test.ts` | 10 | Result comparison: duplicates, NULLs, ordering, types |
 | `tests/guard.test.ts` | 22 | Lexer and SQL guard |
-| `tests/pipeline.test.ts` | 30 | Full verification pipeline on real PGlite: verdicts, destructive SQL, untrusted AI output |
+| `tests/pipeline.test.ts` | 31 | Full verification pipeline on real PGlite: verdicts, destructive SQL, untrusted AI output, coarse clocks |
+| `tests/timer.test.ts` | 4 | Clock-resolution estimation (coarse, fine, frozen, real clocks) |
 | `tests/watchdog.test.ts` | 5 | Runaway-query watchdog (fake timers) |
 
 What the suites cover (named in the test titles): destructive SQL including a `DELETE` hidden in a CTE; NULL,
