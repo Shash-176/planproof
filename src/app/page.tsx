@@ -83,7 +83,7 @@ export default function Home() {
         </details>
         <label className="check">
           <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />
-          Also ask the BharatCode model to explain the plan and propose its own fix
+          Also ask an AI model to explain the plan and propose its own fix
         </label>
         <button type="submit" className="run" disabled={running}>
           {running ? 'Testing…' : 'Test the suggestion'}
@@ -106,7 +106,7 @@ export default function Home() {
           <a href="https://github.com/Shash-176/planproof" target="_blank" rel="noreferrer">
             github.com/Shash-176/planproof
           </a>{' '}
-          · AI analysis by the BharatCode model API · Postgres in the browser by PGlite
+          · Postgres in the browser by PGlite
         </p>
       </footer>
     </main>

@@ -7,8 +7,8 @@ const n = (x: number) => Math.round(x).toLocaleString('en-US');
 
 const SOURCE_LABEL: Record<CandidateResult['candidate']['source'], string> = {
   pasted: 'Your AI’s suggestion',
-  'ai-extracted': 'Your AI’s suggestion (SQL extracted by the BharatCode model)',
-  'ai-proposed': 'Proposed by the BharatCode model',
+  'ai-extracted': 'Your AI’s suggestion (SQL extracted by the AI model)',
+  'ai-proposed': 'Proposed by the AI model',
 };
 
 const DATASET_LABEL: Record<DatasetName, string> = {
@@ -166,7 +166,7 @@ function AiNote({ report }: { report: Report }) {
       <aside className="card ai">
         <h3>AI explanation</h3>
         <p>{ai.explanation}</p>
-        <p className="fineprint">Written by the BharatCode model ({ai.model}). It is an explanation, not evidence: only the measurements above verify anything.</p>
+        <p className="fineprint">Written by {ai.model} via {ai.provider}. It is an explanation, not evidence: only the measurements above verify anything.</p>
       </aside>
     );
   if (ai.status === 'skipped') return null;

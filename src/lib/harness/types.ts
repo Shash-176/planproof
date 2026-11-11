@@ -89,6 +89,8 @@ export interface AiInfo {
   explanation?: string;
   /** Present for transparency; never used as evidence. */
   model?: string;
+  provider?: string;
+  latencyMs?: number;
 }
 
 export interface Report {

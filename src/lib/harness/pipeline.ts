@@ -1,6 +1,6 @@
 import { checkSetupScript, classifyQuery } from '../sql/guard';
 import { stringLiterals } from '../sql/lexer';
-import type { AiOutput, AnalyzeRequest } from '../model/schema';
+import type { AiOutput, AnalyzeRequest } from '../ai/schema';
 import { dedupe, extractStatements, toCandidate } from './candidates';
 import { countRows, EDGE_DATA, generateData, introspect, MAIN_DATA, truncateAll, type GenerateOptions } from './datagen';
 import type { MeasureOptions } from './measure';
@@ -28,8 +28,8 @@ export interface ProgressEvent {
 
 export interface PipelineDeps {
   createDb: () => Promise<Db>;
-  /** Calls the BharatCode model. May throw; the pipeline continues without it. */
-  analyze?: (req: AnalyzeRequest) => Promise<{ output: AiOutput; model: string }>;
+  /** Calls the AI analysis service. May throw; the pipeline continues without it. */
+  analyze?: (req: AnalyzeRequest) => Promise<{ output: AiOutput; model: string; provider?: string; latencyMs?: number }>;
   onProgress?: (e: ProgressEvent) => void;
   mainData?: GenerateOptions;
   edgeData?: GenerateOptions;
@@ -107,7 +107,7 @@ export async function runPipeline(input: PipelineInput, deps: PipelineDeps): Pro
   let ai: AiInfo = { status: 'skipped', message: 'AI analysis was turned off.' };
 
   if (input.useAi && deps.analyze) {
-    progress('ai', 'Asking the BharatCode model for analysis', false);
+    progress('ai', 'Asking the AI model to explain the plan and propose fixes', false);
     try {
       const res = await deps.analyze({
         schemaSql: input.schemaSql.slice(0, 20_000),
@@ -116,7 +116,7 @@ export async function runPipeline(input: PipelineInput, deps: PipelineDeps): Pro
         planSummary: planSummary(baseline.m),
         needsExtraction: !!input.suggestion?.trim() && pasted.length === 0,
       });
-      ai = { status: 'ok', explanation: res.output.explanation, model: res.model };
+      ai = { status: 'ok', explanation: res.output.explanation, model: res.model, provider: res.provider, latencyMs: res.latencyMs };
       const fromUser = res.output.candidates.filter((c) => c.origin === 'user_suggestion');
       const fromModel = res.output.candidates.filter((c) => c.origin === 'model').slice(0, MAX_AI_PROPOSALS);
       // AI-extracted SQL is only used when PlanProof could not find SQL in the paste itself

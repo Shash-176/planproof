@@ -181,7 +181,7 @@ describe('the model is not the source of truth', () => {
   it('a model that throws (timeout, 5xx, malformed) does not stop pasted SQL being verified', async () => {
     const r = await run(
       { query: 'SELECT id, amount FROM events WHERE account_id = 77', suggestion: 'CREATE INDEX ev_acc ON events (account_id);', useAi: true },
-      { analyze: async () => { throw Object.assign(new Error('The BharatCode API did not answer in time.'), { code: 'timeout' }); } },
+      { analyze: async () => { throw Object.assign(new Error('The AI provider did not answer in time.'), { code: 'timeout' }); } },
     );
     expect(r.ai.status).toBe('error');
     expect(r.ai.message).toMatch(/did not answer/);
