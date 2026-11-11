@@ -7,6 +7,8 @@ import { CopyButton } from './CopyButton';
 import { maxTouched, PlanTree } from './PlanTree';
 
 const n = (x: number) => Math.round(x).toLocaleString('en-US');
+/** Clock steps can be microseconds once the page is cross-origin isolated. */
+const fmtClock = (ms: number) => (ms < 0.1 ? `${Math.max(1, Math.round(ms * 1000))} µs` : fmtMs(ms));
 
 const SOURCE_LABEL: Record<CandidateResult['candidate']['source'], string> = {
   pasted: 'Suggestion you pasted',
@@ -65,7 +67,7 @@ export function Results({ report }: { report: Report }) {
       )}
 
       {report.results.map((r) => (
-        <VerdictCard key={r.candidate.id} r={r} before={report.baseline} />
+        <VerdictCard key={r.candidate.id} r={r} before={report.baseline} clockMs={report.timerResolutionMs} />
       ))}
 
       {!anyMeasured && <BaselineCard m={report.baseline} />}
@@ -80,7 +82,7 @@ export function Results({ report }: { report: Report }) {
   );
 }
 
-function VerdictCard({ r, before }: { r: CandidateResult; before: Measurement }) {
+function VerdictCard({ r, before, clockMs }: { r: CandidateResult; before: Measurement; clockMs: number }) {
   const after = r.after;
   const datasetsOk = r.equivalence.filter((e) => e.equivalent).length;
   const scale = maxTouched(before, after);
@@ -104,7 +106,13 @@ function VerdictCard({ r, before }: { r: CandidateResult; before: Measurement })
 
       {after && (
         <dl className="stats">
-          <Stat label="Median time" before={fmtMs(before.medianMs)} after={fmtMs(after.medianMs)} note={r.speedup !== undefined ? speedNote(r.speedup) : undefined} help="Median of the timed EXPLAIN ANALYZE runs, in this browser." />
+          <Stat
+            label="Median time"
+            before={fmtMs(before.medianMs)}
+            after={r.speedupIsLowerBound ? `≤ ${fmtClock(clockMs)}` : fmtMs(after.medianMs)}
+            note={r.speedup !== undefined ? speedNote(r.speedup, !!r.speedupIsLowerBound) : undefined}
+            help="Median of the timed EXPLAIN ANALYZE runs, in this browser."
+          />
           <Stat label="Rows read" before={n(before.rowsRead)} after={n(after.rowsRead)} help="Rows the scan steps touched, including rows read and then discarded by a filter." />
           <Stat label="Planner cost" before={n(before.totalCost)} after={n(after.totalCost)} help="Postgres's own estimate of the work, in arbitrary units. Lower is cheaper." />
           <div className="stat">
@@ -184,6 +192,9 @@ function VerdictCard({ r, before }: { r: CandidateResult; before: Measurement })
             <br />
             suggestion: {after.runsMs.map((x) => x.toFixed(2)).join(', ')} ms
           </p>
+          <p className="muted small">
+            Smallest clock step in this browser: {fmtClock(clockMs)}. Times below it cannot be measured, so speed-ups against them are shown as minimums.
+          </p>
         </details>
       )}
 
@@ -196,8 +207,9 @@ function VerdictCard({ r, before }: { r: CandidateResult; before: Measurement })
   );
 }
 
-function speedNote(s: number): string {
+function speedNote(s: number, lowerBound: boolean): string {
   if (!Number.isFinite(s)) return 'faster';
+  if (lowerBound) return `at least ${fmtSpeedup(s)} faster`;
   if (s >= 1) return `${fmtSpeedup(s)} faster`;
   return `${fmtSpeedup(1 / s)} slower`;
 }

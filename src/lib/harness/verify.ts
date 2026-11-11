@@ -118,6 +118,7 @@ export async function verifyOnMain(
   query: string,
   baseline: { m: Measurement; result: ResultSet },
   opts?: MeasureOptions,
+  timerResolutionMs = 0.001,
 ): Promise<CandidateResult> {
   const base: CandidateResult = { candidate, verdict: 'INVALID', headline: '', reasons: [], equivalence: [], notes: [] };
   const cls = classifyCandidate(candidate.sql);
@@ -150,12 +151,17 @@ export async function verifyOnMain(
     detail: cmp.detail,
   };
   const after = t.after!;
-  const speedup = after.medianMs > 0 ? baseline.m.medianMs / after.medianMs : Infinity;
+  // A median below the clock's step is not a measurement: compute the ratio
+  // against the step and report it as a lower bound.
+  const floor = Math.max(timerResolutionMs, 0.001);
+  const speedupIsLowerBound = after.medianMs <= floor;
+  const speedup = baseline.m.medianMs / Math.max(after.medianMs, floor);
   const res: CandidateResult = {
     ...base,
     testedSql: t.testedSql,
     after,
     speedup,
+    speedupIsLowerBound,
     equivalence: [eq],
     notes: [...t.notes],
     indexSizeBytes: t.indexSizeBytes,
@@ -173,7 +179,7 @@ export async function verifyOnMain(
       reasons: [cmp.detail ?? 'Results differ.', 'Tested on the main dataset.'],
     };
   }
-  return { ...res, ...judgePerformance(cls.kind, baseline.m, after, speedup, t.newIndexes) };
+  return { ...res, ...judgePerformance(cls.kind, baseline.m, after, speedup, t.newIndexes, speedupIsLowerBound ? floor : undefined) };
 }
 
 function judgePerformance(
@@ -182,8 +188,11 @@ function judgePerformance(
   after: Measurement,
   speedup: number,
   newIndexes: string[],
+  /** Set when the after-time was below the clock's step: the speed-up is then a minimum. */
+  belowResolutionMs?: number,
 ): Pick<CandidateResult, 'verdict' | 'headline' | 'reasons'> {
-  const evidence = compareSentence(before, after);
+  const lowerBound = belowResolutionMs !== undefined;
+  const evidence = compareSentence(before, after, belowResolutionMs);
   if (kind === 'index' && newIndexes.length === 0)
     return { verdict: 'INEFFECTIVE', headline: 'No effect: no new index was created.', reasons: ['An identical index probably exists already.'] };
   if (kind === 'index' && !newIndexes.some((n) => after.usedIndexes.includes(n)))
@@ -202,7 +211,11 @@ function judgePerformance(
     };
   const cheaper = after.totalCost < before.totalCost || after.rowsRead < before.rowsRead;
   if (speedup >= ACCEPTANCE.minSpeedup && cheaper)
-    return { verdict: 'VERIFIED', headline: `Verified: ${fmtSpeedup(speedup)} faster, identical results.`, reasons: [evidence] };
+    return {
+      verdict: 'VERIFIED',
+      headline: `Verified: ${lowerBound ? 'at least ' : ''}${fmtSpeedup(speedup)} faster, identical results.`,
+      reasons: lowerBound ? [evidence, 'The optimised query finished faster than this clock can measure, so the speed-up is a lower bound.'] : [evidence],
+    };
   if (speedup < 1 / ACCEPTANCE.minSpeedup)
     return { verdict: 'INEFFECTIVE', headline: `Slower: ${fmtSpeedup(speedup)} the original speed.`, reasons: [evidence] };
   return {

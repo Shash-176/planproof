@@ -99,8 +99,15 @@ export function narrate(plan: RawPlanNode): string[] {
 }
 
 /** One-line comparison for the verdict card. */
-export function compareSentence(before: { rowsRead: number; medianMs: number }, after: { rowsRead: number; medianMs: number }): string {
-  return `Postgres read ${rows(before.rowsRead)} before and ${rows(after.rowsRead)} after; median time ${fmtMs(before.medianMs)} → ${fmtMs(after.medianMs)}.`;
+export function compareSentence(
+  before: { rowsRead: number; medianMs: number },
+  after: { rowsRead: number; medianMs: number },
+  /** When set, the after-time was below the clock's step and is shown as "≤ step". */
+  belowResolutionMs?: number,
+): string {
+  const step = belowResolutionMs !== undefined && belowResolutionMs < 0.1 ? `${Math.max(1, Math.round(belowResolutionMs * 1000))} µs` : fmtMs(belowResolutionMs ?? 0);
+  const afterTime = belowResolutionMs !== undefined ? `≤ ${step}` : fmtMs(after.medianMs);
+  return `Postgres read ${rows(before.rowsRead)} before and ${rows(after.rowsRead)} after; median time ${fmtMs(before.medianMs)} → ${afterTime}.`;
 }
 
 export function fmtMs(ms: number): string {

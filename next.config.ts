@@ -29,7 +29,11 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
+  // COOP + COEP make the page cross-origin isolated, which lifts the browser's
+  // 0.1 ms timer coarsening: PGlite's EXPLAIN ANALYZE timings come from that clock.
+  // Safe here because every resource is same-origin.
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
 ];
 
 const nextConfig: NextConfig = {

@@ -72,6 +72,8 @@ export interface CandidateResult {
   testedSql?: string;
   after?: Measurement;
   speedup?: number;
+  /** True when the optimised median was below the clock's step; speedup is then a minimum. */
+  speedupIsLowerBound?: boolean;
   equivalence: EquivalenceResult[];
   migration?: { up: string; down: string };
   indexSizeBytes?: number;
@@ -101,4 +103,6 @@ export interface Report {
   results: CandidateResult[];
   warnings: string[];
   elapsedMs: number;
+  /** Smallest step of the clock used for timings in this environment. */
+  timerResolutionMs: number;
 }

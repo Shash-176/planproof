@@ -4,6 +4,7 @@ import type { AiOutput, AnalyzeRequest } from '../ai/schema';
 import { dedupe, extractStatements, toCandidate } from './candidates';
 import { countRows, EDGE_DATA, generateData, introspect, MAIN_DATA, truncateAll, type GenerateOptions } from './datagen';
 import type { MeasureOptions } from './measure';
+import { estimateTimerResolutionMs } from './timer';
 import { baselineResult, checkEquivalenceOn, runBaseline, verifyOnMain } from './verify';
 import type { AiInfo, Candidate, CandidateResult, Db, Report } from './types';
 
@@ -34,6 +35,8 @@ export interface PipelineDeps {
   mainData?: GenerateOptions;
   edgeData?: GenerateOptions;
   measure?: MeasureOptions;
+  /** Clock step for timings; estimated from performance.now() when omitted. */
+  timerResolutionMs?: number;
 }
 
 /** A problem with the user's input that prevents any verification. */
@@ -50,6 +53,7 @@ export async function runPipeline(input: PipelineInput, deps: PipelineDeps): Pro
   const started = Date.now();
   const progress = (step: ProgressStep, label: string, db = true) => deps.onProgress?.({ step, label, db });
   const warnings: string[] = [];
+  const timerResolutionMs = deps.timerResolutionMs ?? estimateTimerResolutionMs();
 
   // ---- inputs
   const q = classifyQuery(input.query);
@@ -137,7 +141,7 @@ export async function runPipeline(input: PipelineInput, deps: PipelineDeps): Pro
   const results: CandidateResult[] = [];
   for (const [i, c] of candidates.entries()) {
     progress('verify', `Testing suggestion ${i + 1} of ${candidates.length}`);
-    results.push(await verifyOnMain(db, c, query, baseline, deps.measure));
+    results.push(await verifyOnMain(db, c, query, baseline, deps.measure, timerResolutionMs));
   }
 
   // ---- edge-case and empty datasets: equivalence only
@@ -172,6 +176,7 @@ export async function runPipeline(input: PipelineInput, deps: PipelineDeps): Pro
     results,
     warnings,
     elapsedMs: Date.now() - started,
+    timerResolutionMs,
   };
 }
 

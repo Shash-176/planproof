@@ -69,6 +69,23 @@ describe('verdicts', () => {
     expect(res.migration?.down).toMatch(/DROP INDEX IF EXISTS ev_acc/);
   });
 
+  it('reports a lower bound, never infinity, when the optimised time is below the clock step', async () => {
+    // a coarse 0.5 ms clock, as in a browser that coarsens timers
+    const r = await run(
+      { query: 'SELECT id, amount FROM events WHERE account_id = 77 ORDER BY id', suggestion: 'CREATE INDEX ev_acc ON events (account_id);' },
+      { timerResolutionMs: 0.5 },
+    );
+    const res = r.results[0];
+    expect(r.timerResolutionMs).toBe(0.5);
+    expect(res.after!.medianMs).toBeLessThanOrEqual(0.5);
+    expect(res.speedupIsLowerBound).toBe(true);
+    expect(Number.isFinite(res.speedup)).toBe(true);
+    expect(res.speedup).toBeCloseTo(r.baseline.medianMs / 0.5, 6);
+    expect(res.verdict).toBe('VERIFIED');
+    expect(res.headline).toMatch(/^Verified: at least /);
+    expect(res.reasons.join(' ')).toMatch(/≤ 0\.50 ms/);
+  });
+
   it('INEFFECTIVE: an index on a column the query does not filter on', async () => {
     const r = await run({ query: "SELECT count(*) FROM events WHERE kind = 'buy'", suggestion: 'CREATE INDEX ev_at ON events (at);' });
     expect(verdicts(r)).toEqual(['INEFFECTIVE']);
