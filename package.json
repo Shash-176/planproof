@@ -1,9 +1,26 @@
 {
   "name": "planproof",
-  "version": "0.1.0",
+  "version": "1.0.0-rc.1",
   "private": true,
-  "description": "Your AI suggested a SQL optimisation. Did it actually help? PlanProof proves it.",
+  "description": "AI proposes. PostgreSQL proves. Check whether an AI-suggested SQL index or rewrite actually helps, and whether it changes your results, by running it in PostgreSQL in the browser.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shash-176/planproof.git"
+  },
+  "homepage": "https://github.com/Shash-176/planproof#readme",
+  "bugs": {
+    "url": "https://github.com/Shash-176/planproof/issues"
+  },
+  "keywords": [
+    "postgresql",
+    "sql",
+    "query-optimization",
+    "explain-analyze",
+    "pglite",
+    "llm",
+    "developer-tools"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -16,7 +33,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node scripts/e2e-smoke.mjs",
-    "mock:ai": "node scripts/mock-ai.mjs"
+    "mock:ai": "node scripts/mock-ai.mjs",
+    "eval": "tsx eval/run.ts",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",
@@ -29,7 +48,15 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.6",
+    "tsx": "^4.23.15",
     "typescript": "5.9",
     "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
