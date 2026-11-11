@@ -212,6 +212,54 @@ describe('the model is not the source of truth', () => {
   });
 });
 
+describe('unexpected AI output never reaches the database unchecked', () => {
+  const stub = (candidates: { kind: 'index' | 'rewrite'; sql: string; origin: 'model' | 'user_suggestion' }[]) => ({
+    analyze: async () => ({ model: 'stub', provider: 'stub', output: { explanation: 'x', candidates: candidates.map((c) => ({ ...c, rationale: 'trust me' })) } }),
+  });
+
+  it('a destructive statement labelled as an index is blocked and never executed', async () => {
+    let db: Awaited<ReturnType<typeof freshDb>> | null = null;
+    const r = await run(
+      { query: 'SELECT count(*) FROM events', useAi: true },
+      { ...stub([{ kind: 'index', sql: 'DROP TABLE events', origin: 'model' }]), createDb: async () => (db = await freshDb()) },
+    );
+    expect(verdicts(r)).toEqual(['UNSAFE']);
+    const n = await db!.query<{ n: number }>('SELECT count(*)::int AS n FROM events');
+    expect(n.rows[0].n).toBe(60_000); // table and all rows intact
+  });
+
+  it('multiple statements and hallucinated columns are INVALID', async () => {
+    const r = await run(
+      { query: 'SELECT id FROM accounts WHERE region = \'north\'', useAi: true },
+      stub([
+        { kind: 'index', sql: 'CREATE INDEX a ON accounts (region); CREATE INDEX b ON accounts (tier)', origin: 'model' },
+        { kind: 'index', sql: 'CREATE INDEX c ON accounts (regoin)', origin: 'model' },
+      ]),
+    );
+    expect(verdicts(r)).toEqual(['INVALID', 'INVALID']);
+  });
+
+  it('the model cannot replace SQL the user pasted', async () => {
+    const r = await run(
+      { query: 'SELECT id, amount FROM events WHERE account_id = 77', suggestion: 'CREATE INDEX mine ON events (amount);', useAi: true },
+      stub([{ kind: 'index', sql: 'CREATE INDEX better ON events (account_id)', origin: 'user_suggestion' }]),
+    );
+    expect(r.results.map((x) => [x.candidate.source, x.candidate.sql])).toEqual([['pasted', 'CREATE INDEX mine ON events (amount)']]);
+  });
+
+  it('a model rewrite with a column renamed but the same values is still compared by value', async () => {
+    const r = await run(
+      { query: 'SELECT id FROM accounts WHERE region = \'north\'', useAi: true },
+      stub([{ kind: 'rewrite', sql: 'SELECT id AS account_id FROM accounts WHERE region = \'north\'', origin: 'model' }]),
+    );
+    expect(r.results[0].equivalence.every((e) => e.equivalent)).toBe(true);
+  });
+
+  it('seed scripts that fail are reported as a setup problem', async () => {
+    await expect(run({ query: 'SELECT 1', seedSql: 'INSERT INTO accounts VALUES (1);' })).rejects.toThrow(/seed script failed/);
+  });
+});
+
 describe('generated data from a schema with no seed', () => {
   it('generates enough rows across FKs, uuid, enum, varchar and a junction table to change plans', async () => {
     const schema = `
