@@ -1,6 +1,6 @@
 {
   "name": "planproof",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "private": true,
   "description": "AI proposes. PostgreSQL proves. Check whether an AI-suggested SQL index or rewrite actually helps, and whether it changes your results, by running it in PostgreSQL in the browser.",
   "license": "MIT",

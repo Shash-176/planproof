@@ -1,5 +1,7 @@
 # Deployment
 
+**Live:** https://planproof-two.vercel.app/ (Vercel Hobby, deployed from `main` by the owner on 11 Nov 2026).
+
 ## Choice: Vercel Hobby
 
 | Option | Fit for PlanProof | Notes |
@@ -13,7 +15,7 @@ Facts from https://vercel.com/docs/plans/hobby and https://vercel.com/docs/funct
 
 ## What is already configured
 
-- `next.config.ts`: security headers and CSP.
+- `next.config.ts`: security headers, CSP, and COOP + COEP for cross-origin isolation (precise timers for EXPLAIN ANALYZE).
 - `src/app/api/analyze/route.ts`: Node.js runtime, `maxDuration = 60`, no caching.
 - `.env.example`: every variable, with comments.
 - No `vercel.json` is needed; Vercel detects Next.js.
@@ -47,3 +49,34 @@ Every later push to `main` redeploys automatically.
 - Function logs (1 hour retention on Hobby) show `[analyze]` lines for fallbacks and failures. They contain
   provider names and error kinds, never keys or user input.
 - If the Groq key leaks, revoke it in the Groq console and replace the Vercel variable; redeploy.
+
+## Production verification
+
+Performed on 11 Nov 2026 against https://planproof-two.vercel.app/ in a real browser (the Claude desktop app's
+built-in Chromium-based browser), before the COEP fix below was deployed unless noted.
+
+| Check | Result |
+|---|---|
+| `GET /api/analyze` | `{"configured":true,"providers":[groq openai/gpt-oss-120b, groq qwen/qwen3.8-27b]}`, `cache-control: no-store`, no key |
+| One-click demo | 2 suggestions, both VERIFIED (the pasted index and the model's own proposal); AI explanation written by `openai/gpt-oss-120b` via Groq in 1.1 s; run took 8.7 s |
+| Example: index Postgres ignores | Pasted suggestion INEFFECTIVE (index not used); model proposal also INEFFECTIVE |
+| Example: JOIN rewrite | Pasted suggestion UNSAFE (results change); model proposal VERIFIED |
+| Example: NOT EXISTS rewrite | Pasted suggestion UNSAFE on the edge-case dataset; model proposal INEFFECTIVE |
+| Cancel during a run | Progress cleared, no results or error shown, buttons re-enabled |
+| Destructive query (`DELETE FROM orders`) | Refused before execution with a stage-specific message |
+| Broken schema | Postgres syntax error shown with a hint |
+| Runaway query (`?dbStepLimitMs=3000`, 200k × 200k cross join) | Stopped by the watchdog; the next run on the same page succeeded |
+| Mobile (375 × 812) | No horizontal overflow on the landing page or results |
+| Security headers | CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP, and HSTS (added by Vercel) |
+| API errors | Bad JSON → 400, invalid body → 400, 70 KB body → 413, PUT → 405; messages contain no internals |
+| Rate limit | Requests beyond 8 per minute from one client → 429 (checked with invalid bodies, so no AI quota was used) |
+| Secrets in the browser | Page HTML and all 8 page scripts contain no `gsk_` key, no `GROQ_API_KEY` name and no provider hostname. The Web Worker's chunks were not fetchable from the page; the equivalent local check (below) covers them |
+
+Local equivalent of the bundle check: a production build made with a fake key in `GROQ_API_KEY` contains that
+value in no file under `.next/static` (see `docs/PROGRESS.md`).
+
+**Defect found and fixed:** browsers step `performance.now()` in 0.1 ms without cross-origin isolation, so very fast
+optimised queries read as 0.10 or 0.00 ms and the same index showed 76× in one card and 152× in another. Fixed by
+adding COEP (verified locally in Chromium: `crossOriginIsolated` true, timings to 0.01 ms, PGlite working) and by
+reporting sub-resolution results as lower bounds. Re-check production after the fix deploys: the response headers
+should include `Cross-Origin-Embedder-Policy: require-corp`.

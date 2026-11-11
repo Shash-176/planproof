@@ -15,7 +15,8 @@ Repo: https://github.com/Shash-176/planproof · Started as a BharatCode Build Le
 
 ## Current state
 
-See `docs/PROGRESS.md` (live status) and `CHANGELOG.md`. Version `1.0.0-rc.1`.
+Version `1.0.0`, live at https://planproof-two.vercel.app/ (Vercel, auto-deploys from `main`).
+See `docs/PROGRESS.md` (status) and `CHANGELOG.md`.
 
 ## Rules
 
@@ -59,8 +60,10 @@ Browser tests against the mock: `npm run build`, then
 
 ## Environment facts
 
-- The cloud build environment cannot reach AI providers (proxy 403). Real AI calls must be tested on the
-  owner's machine or the deployed site.
+- The cloud build environment cannot reach AI providers or vercel.app (proxy 403). Test production through a
+  browser (the owner's desktop app browser pane works) and real AI calls on the deployed site.
+- Browser timers are coarse (0.1 ms) unless the page is cross-origin isolated; keep the COOP/COEP headers and
+  never add cross-origin subresources without a CORP/CORS header, or isolation (and precise timings) breaks.
 - Commits made in the cloud workspace reach the owner's folder `F:\BharatCode-Build-League` as a git
   bundle; the owner pushes from Windows. Never commit `.env.local` or `.planproof-sync*`.
 

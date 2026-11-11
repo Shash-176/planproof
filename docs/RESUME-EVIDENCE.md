@@ -3,7 +3,7 @@
 Not marketing. A ledger of facts that a resume bullet could rest on, each with where to verify it.
 If a number here changes, update it from its source; never round up.
 
-_Last updated: 11 Nov 2026, version 1.0.0-rc.1._
+_Last updated: 11 Nov 2026, version 1.0.0._
 
 ## Status at a glance
 
@@ -14,14 +14,14 @@ _Last updated: 11 Nov 2026, version 1.0.0-rc.1._
 | Semantic regressions caught | **5 / 5** result-changing scenarios flagged UNSAFE in every run | same |
 | Lint / types | ESLint (Next.js + typescript-eslint) clean; `tsc --strict` clean | `npm run lint`, `npm run typecheck` |
 | Dependencies | `npm audit`: 0 vulnerabilities | `npm audit` |
-| CI | Workflow with lint, typecheck, tests, build, audit, browser smoke test (mock AI). **No GitHub run yet** at time of writing | `.github/workflows/ci.yml`; Actions tab after push |
-| Deployment | **Not deployed yet.** Prepared for Vercel Hobby | `docs/DEPLOYMENT.md` |
-| Real AI provider call | **Not yet made.** All AI paths tested against mocks | `tests/ai.test.ts` |
+| CI | Lint, typecheck, tests, build, audit, then a Chromium smoke test against a mock AI provider. **Passed on GitHub** (runs #1 and #2, latest on `13372af`) | `.github/workflows/ci.yml`; https://github.com/Shash-176/planproof/actions |
+| Deployment | **Live** at https://planproof-two.vercel.app/ (Vercel Hobby, $0). Production checks passed; table in the deployment doc | `docs/DEPLOYMENT.md#production-verification` |
+| Real AI provider | **Working.** Groq `openai/gpt-oss-120b` answered on the live site (one observed call: 1.1 s); owner also verified locally. Failure paths tested against mocks | `docs/DEPLOYMENT.md#production-verification`, `tests/ai.test.ts` |
 
 ## Technology (actually used)
 
 TypeScript (strict) · Next.js 16 App Router · React 19 · PGlite 0.5.16 (PostgreSQL 18.6 compiled to WebAssembly) ·
-Web Workers · Zod 4 · Vitest · Playwright (smoke script) · ESLint 9 · GitHub Actions · Vercel (target) ·
+Web Workers · Zod 4 · Vitest · Playwright (smoke script) · ESLint 9 · GitHub Actions · Vercel ·
 Groq API via an OpenAI-compatible adapter (`openai/gpt-oss-120b`, `qwen/qwen3.8-27b`).
 
 Not used, and should not be claimed: LangChain, vector databases, Redis, Docker, Kubernetes, auth, a server-side database.
@@ -94,6 +94,12 @@ watchdog; no console errors or CSP violations.
 
 ## Bugs found by tests or review
 
+- **Coarse browser clock distorted speed-ups (found in production).** Without cross-origin isolation, browsers step
+  `performance.now()` in 0.1 ms; PGlite's EXPLAIN timings use it, so one index showed 76× in one card and 152× in
+  another, and a 0.00 ms median could have produced an infinite ratio. Fixed with COEP (cross-origin isolation →
+  microsecond clock, verified in Chromium) and lower-bound reporting. (`src/lib/harness/timer.ts`, `tests/timer.test.ts`,
+  commit "fix: report speed-ups honestly…")
+
 - Internal exception text (including a file path) could reach `/api/analyze` clients. Found by a test written for it;
   fixed in `analyze.ts`. (commit "refactor: decouple AI provider…")
 - UNSAFE verdict cards repeated irrelevant performance notes. Found in a screenshot review; fixed in `verify.ts`.
@@ -111,10 +117,16 @@ server-only API keys · CSP and security headers · model output validated twice
 Browser Postgres vs. hosted sandbox · testing vs. formal equivalence · one structured LLM call vs. an agent ·
 in-memory rate limit vs. Redis · lexical guard + database enforcement vs. a full SQL parser. See `docs/INTERVIEW-GUIDE.md` §18.
 
+## Production facts (observed 11 Nov 2026, single observations unless stated)
+
+- Live site ran the demo end to end with real AI analysis in 8.7 s; each example took 7–10 s.
+- Groq `openai/gpt-oss-120b` answer latency: **1.1 s in one observed call**. Not a benchmark.
+- The model's own proposals were judged by the same rules: across the demo and the three other examples they came out VERIFIED (2) and INEFFECTIVE (2).
+  Evidence that verdicts don't depend on who proposed the SQL, not a measure of model quality.
+
 ## Not yet true (do not claim)
 
-- Deployed / live users / traffic
+- Users, traffic or adoption (the site is live; nothing is known about who uses it)
 - GitHub stars or adoption
 - Production speed-ups (all numbers are WebAssembly on synthetic data)
-- Real AI provider latency or quality
-- A passing GitHub Actions run (until it has run)
+- AI latency or quality statistics (one observed call is an anecdote)

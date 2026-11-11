@@ -11,9 +11,19 @@ PostgreSQL running **inside your browser tab**, measures the original and the su
 results on your data, on a hostile edge-case dataset and on empty tables, and gives a verdict with the
 evidence.
 
-**Live demo:** _not deployed yet_ · [Architecture](docs/ARCHITECTURE.md) · [Evaluation results](docs/benchmarks/RESULTS.md) · [Security](SECURITY.md)
+**Live demo: [planproof-two.vercel.app](https://planproof-two.vercel.app/)** · [Architecture](docs/ARCHITECTURE.md) · [Evaluation results](docs/benchmarks/RESULTS.md) · [Security](SECURITY.md)
 
 ![PlanProof verifying an AI-suggested index](docs/images/demo.png)
+
+## Verified in production
+
+Checked on the live deployment on 11 November 2026 (details in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#production-verification)):
+
+- The one-click demo and all four built-in examples return their documented verdicts.
+- AI analysis runs through Groq (`openai/gpt-oss-120b`); its answers are verified like any other suggestion.
+- Cancelling a run, invalid input and a runaway query are handled; the page recovers afterwards.
+- Security headers are present, the API key is not in any page or script the browser loads, and the AI endpoint
+  rejects malformed, oversized and excessive requests.
 
 ## Verdicts
 
@@ -144,7 +154,8 @@ If every model is rate-limited or down, AI analysis is skipped with a message. *
 
 ## Deploy
 
-Vercel's free Hobby plan fits this app as it is: a static page plus one serverless route. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The live demo runs on Vercel's free Hobby plan: a static page plus one serverless route, with `GROQ_API_KEY` as
+the only secret. To deploy your own copy, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) or use the button.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FShash-176%2Fplanproof&env=GROQ_API_KEY&envDescription=Free%20Groq%20API%20key%20for%20optional%20AI%20analysis&envLink=https%3A%2F%2Fconsole.groq.com%2Fkeys)
 
@@ -153,6 +164,7 @@ Vercel's free Hobby plan fits this app as it is: a static page plus one serverle
 - Your SQL only runs in a throwaway PostgreSQL in your own tab. Destructive statements are refused, rewrites run
   `READ ONLY`, index trials roll back.
 - A watchdog stops runaway queries (PGlite ignores `statement_timeout`).
+- The page is cross-origin isolated (COOP + COEP), which also gives PostgreSQL's timings a microsecond clock.
 - The AI key stays on the server. `/api/analyze` checks the origin, limits body size and request rate, and validates
   input and output.
 - Rows never leave the browser. With AI analysis on, the schema, query, pasted suggestion and a plan summary are sent
@@ -163,6 +175,8 @@ Details and known limitations: [SECURITY.md](SECURITY.md).
 ## Limitations
 
 - WebAssembly timings and synthetic data are not production. Confirm on your own database before shipping.
+- When the optimised query is faster than the browser's clock can measure, the speed-up is shown as a minimum
+  ("at least N×") rather than an exact ratio.
 - Synthetic data is uniformly distributed; real data is skewed, which can change the planner's choices.
 - Identical results on three datasets is strong evidence, not a proof of equivalence.
 - One read-only query at a time. Write cost of indexes is reported as size only.

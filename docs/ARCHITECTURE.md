@@ -102,6 +102,10 @@ The pipeline, in order:
    `status = 'pending'` match rows. Then `ANALYZE`.
 3. **Baseline.** `EXPLAIN (ANALYZE, FORMAT JSON)`: one warm-up plus up to five timed runs, inside
    `BEGIN READ ONLY … ROLLBACK`. The result set is captured for comparison.
+   PGlite's timings come from the browser's `performance.now()`, which browsers coarsen to 0.1 ms unless the page
+   is cross-origin isolated. PlanProof sends COOP + COEP headers so the page is isolated (microsecond clock), and
+   also measures the clock's step at run time (`timer.ts`): an optimised median at or below that step is reported
+   as "≤ step" and its speed-up as a lower bound, never as an exact or infinite ratio.
 4. **Candidates.** SQL statements in the paste (code blocks first) are extracted deterministically.
    The AI is asked to extract SQL only if the paste contains none, and may add up to two proposals.
 5. **Trial per candidate** (`verify.ts`):
@@ -162,7 +166,7 @@ because WebAssembly timings vary by about 15% between runs.
 | Database | `@electric-sql/pglite` | Real PostgreSQL planner with no server |
 | Validation | Zod 4 | Request, model output, and response validation |
 | Tests | Vitest against real PGlite; Playwright smoke script | The engine is tested on the real database engine |
-| Hosting | Vercel Hobby | Native Next.js; free; environment variables for secrets |
+| Hosting | Vercel Hobby (live at https://planproof-two.vercel.app/) | Native Next.js; free; environment variables for secrets |
 
 No database server, no auth, no queue, no vector store. None of them would serve a requirement.
 

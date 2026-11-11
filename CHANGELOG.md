@@ -3,6 +3,23 @@
 All notable changes to PlanProof. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-11-11
+
+First stable release. Deployed at https://planproof-two.vercel.app/ and checked in production
+(see `docs/DEPLOYMENT.md#production-verification`). The Groq integration was exercised with a real key,
+locally by the owner and on the live site.
+
+### Fixed
+- Speed-ups were distorted by the browser's coarse clock (0.1 ms steps without cross-origin isolation): the same
+  index could show 76× in one card and 152× in another, and a 0.00 ms median could have produced an infinite
+  ratio. The page is now cross-origin isolated (COEP `require-corp` with COOP), giving a microsecond clock, and any
+  optimised time at or below the measured clock step is reported as a lower bound ("at least N×").
+
+### Added
+- `Cross-Origin-Embedder-Policy: require-corp` header.
+- Clock-resolution estimate in each report (`timerResolutionMs`), shown with the raw timings.
+- Tests for clock estimation and lower-bound reporting (120 tests in total).
+
 ## [1.0.0-rc.1] — 2026-11-11
 
 First release candidate as an independent open-source tool. Not yet deployed, and the real AI
