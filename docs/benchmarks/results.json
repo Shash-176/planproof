@@ -1,0 +1,405 @@
+{
+  "env": {
+    "date": "2026-11-11T04:05:18.270Z",
+    "planproof": "1.0.0-rc.1",
+    "pglite": "0.5.16",
+    "node": "v22.23.4",
+    "platform": "linux x64",
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpus": 2,
+    "runsPerScenario": 5
+  },
+  "summary": {
+    "scenarios": 13,
+    "runs": 65,
+    "matchingRuns": 65,
+    "scenariosAllMatching": 13,
+    "unstableScenarios": [],
+    "semanticRegressionsCaught": 5,
+    "semanticRegressionScenarios": 5
+  },
+  "results": [
+    {
+      "id": "index-works",
+      "category": "helps",
+      "expected": "VERIFIED",
+      "verdicts": [
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 172.4142857142857,
+        "median": 186.890625,
+        "max": 207.8135593220339
+      },
+      "rowsRead": {
+        "before": 200000,
+        "after": 9
+      },
+      "planCost": {
+        "before": 4140.19,
+        "after": 42.47
+      },
+      "failedOn": null,
+      "medianElapsedMs": 4014,
+      "why": "An index that works"
+    },
+    {
+      "id": "index-ignored",
+      "category": "no-effect",
+      "expected": "INEFFECTIVE",
+      "verdicts": [
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.9399157540016849,
+        "median": 1.0004455831569568,
+        "max": 1.1506957286203654
+      },
+      "rowsRead": {
+        "before": 200000,
+        "after": 200000
+      },
+      "planCost": {
+        "before": 4561.86,
+        "after": 4564.03
+      },
+      "failedOn": null,
+      "medianElapsedMs": 4822,
+      "why": "An index Postgres ignores"
+    },
+    {
+      "id": "join-duplicates",
+      "category": "semantic-change",
+      "expected": "UNSAFE",
+      "verdicts": [
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.870534035351636,
+        "median": 1.0047367659820654,
+        "max": 1.0822855166621377
+      },
+      "rowsRead": {
+        "before": 220000,
+        "after": 220000
+      },
+      "planCost": {
+        "before": 4688.04,
+        "after": 4764.1
+      },
+      "failedOn": "main",
+      "medianElapsedMs": 4062,
+      "why": "A JOIN rewrite that duplicates rows"
+    },
+    {
+      "id": "not-exists-nulls",
+      "category": "null-trap",
+      "expected": "UNSAFE",
+      "verdicts": [
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.7015483759352971,
+        "median": 0.8708665906499431,
+        "max": 0.9614335402032326
+      },
+      "rowsRead": {
+        "before": 220000,
+        "after": 220000
+      },
+      "planCost": {
+        "before": 4590.65,
+        "after": 4912.03
+      },
+      "failedOn": "edge",
+      "medianElapsedMs": 4550,
+      "why": "A NOT EXISTS rewrite that breaks on NULLs"
+    },
+    {
+      "id": "expression-index",
+      "category": "helps",
+      "expected": "VERIFIED",
+      "verdicts": [
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 332,
+        "median": 416.9285714285714,
+        "max": 1042.5333333333333
+      },
+      "rowsRead": {
+        "before": 20000,
+        "after": 1
+      },
+      "planCost": {
+        "before": 464,
+        "after": 8.3
+      },
+      "failedOn": null,
+      "medianElapsedMs": 3950,
+      "why": "lower(name) cannot use a plain index; an expression index on lower(name) matches the predicate exactly."
+    },
+    {
+      "id": "partial-index-rare-status",
+      "category": "helps",
+      "expected": "VERIFIED",
+      "verdicts": [
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED",
+        "VERIFIED"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 269.24691358024694,
+        "median": 318.45714285714286,
+        "max": 335.46969696969694
+      },
+      "rowsRead": {
+        "before": 200000,
+        "after": 50
+      },
+      "planCost": {
+        "before": 4653.46,
+        "after": 22.07
+      },
+      "failedOn": null,
+      "medianElapsedMs": 3847,
+      "why": "'pending' is a small slice of orders; a partial index ordered by created_at serves the filter, sort and LIMIT."
+    },
+    {
+      "id": "index-wrong-column-order",
+      "category": "no-effect",
+      "expected": "INEFFECTIVE",
+      "verdicts": [
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.4765320762451323,
+        "median": 0.9905312993161494,
+        "max": 1.7916321458160729
+      },
+      "rowsRead": {
+        "before": 20000,
+        "after": 20000
+      },
+      "planCost": {
+        "before": 420.26,
+        "after": 420.26
+      },
+      "failedOn": null,
+      "medianElapsedMs": 3650,
+      "why": "The filter is on city alone; an index leading with created_at cannot be used for it."
+    },
+    {
+      "id": "cosmetic-rewrite",
+      "category": "no-effect",
+      "expected": "INEFFECTIVE",
+      "verdicts": [
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE",
+        "INEFFECTIVE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.9886498894745792,
+        "median": 1.012863976222542,
+        "max": 1.0182961945687325
+      },
+      "rowsRead": {
+        "before": 200000,
+        "after": 200000
+      },
+      "planCost": {
+        "before": 4640,
+        "after": 4640
+      },
+      "failedOn": null,
+      "medianElapsedMs": 3995,
+      "why": "Swapping the order of AND conditions does not change the plan."
+    },
+    {
+      "id": "distinct-removes-duplicates",
+      "category": "semantic-change",
+      "expected": "UNSAFE",
+      "verdicts": [
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.6521739130434782,
+        "median": 0.717948717948718,
+        "max": 0.8395061728395062
+      },
+      "rowsRead": {
+        "before": 99,
+        "after": 99
+      },
+      "planCost": {
+        "before": 10.02,
+        "after": 10.35
+      },
+      "failedOn": "main",
+      "medianElapsedMs": 3689,
+      "why": "Several customers share a city; adding DISTINCT collapses rows the original returns."
+    },
+    {
+      "id": "changed-sort-direction",
+      "category": "semantic-change",
+      "expected": "UNSAFE",
+      "verdicts": [
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 0.9917037037037038,
+        "median": 1.0036604361370718,
+        "max": 1.269417475728155
+      },
+      "rowsRead": {
+        "before": 200000,
+        "after": 200000
+      },
+      "planCost": {
+        "before": 4140.18,
+        "after": 4140.18
+      },
+      "failedOn": "main",
+      "medianElapsedMs": 3783,
+      "why": "The rewrite returns the oldest orders instead of the newest: the ORDER BY direction is part of the answer."
+    },
+    {
+      "id": "count-group-by-empty",
+      "category": "semantic-change",
+      "expected": "UNSAFE",
+      "verdicts": [
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": {
+        "min": 1.0096107640557426,
+        "median": 1.0382735309412376,
+        "max": 1.0623249299719888
+      },
+      "rowsRead": {
+        "before": 200000,
+        "after": 200000
+      },
+      "planCost": {
+        "before": 4177.79,
+        "after": 4177.79
+      },
+      "failedOn": "empty",
+      "medianElapsedMs": 4138,
+      "why": "count(*) with GROUP BY returns no row on empty tables, where the original returns 0."
+    },
+    {
+      "id": "drop-index-advice",
+      "category": "blocked",
+      "expected": "UNSAFE",
+      "verdicts": [
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE",
+        "UNSAFE"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": null,
+      "rowsRead": {
+        "before": 1,
+        "after": null
+      },
+      "planCost": {
+        "before": 8.3,
+        "after": null
+      },
+      "failedOn": null,
+      "medianElapsedMs": 3565,
+      "why": "An assistant suggesting DROP or DELETE must never have it executed."
+    },
+    {
+      "id": "hallucinated-column",
+      "category": "invalid",
+      "expected": "INVALID",
+      "verdicts": [
+        "INVALID",
+        "INVALID",
+        "INVALID",
+        "INVALID",
+        "INVALID"
+      ],
+      "matches": 5,
+      "stable": true,
+      "speedup": null,
+      "rowsRead": {
+        "before": 20000,
+        "after": null
+      },
+      "planCost": {
+        "before": 414,
+        "after": null
+      },
+      "failedOn": null,
+      "medianElapsedMs": 3570,
+      "why": "The suggested index references a column that does not exist."
+    }
+  ]
+}
