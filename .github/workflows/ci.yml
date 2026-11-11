@@ -5,10 +5,18 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  check:
+    name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +24,44 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    name: Browser smoke test (mock AI provider)
+    runs-on: ubuntu-latest
+    needs: check
+    timeout-minutes: 20
+    env:
+      # canned OpenAI-compatible endpoint; no secrets needed
+      AI_CHAIN: custom:mock-model
+      AI_CUSTOM_BASE_URL: http://127.0.0.1:4010/v1
+      AI_CUSTOM_API_KEY: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright (not a project dependency)
+        run: |
+          npm install --no-save playwright@1.65.0
+          npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Start mock AI and app
+        run: |
+          node scripts/mock-ai.mjs &
+          npm start &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:3000 && break; sleep 1; done
+      - name: Demo (expects VERIFIED)
+        run: node scripts/e2e-smoke.mjs http://127.0.0.1:3000 --demo | tee demo.json && grep -q '"VERIFIED"' demo.json
+      - name: NULL trap (expects UNSAFE)
+        run: node scripts/e2e-smoke.mjs http://127.0.0.1:3000 "A NOT EXISTS rewrite that breaks on NULLs" | tee nulls.json && grep -q '"UNSAFE"' nulls.json
+      - name: Mobile layout
+        run: node scripts/e2e-smoke.mjs http://127.0.0.1:3000 "An index Postgres ignores" --mobile | tee mobile.json && grep -q '"INEFFECTIVE"' mobile.json
+      - name: Runaway query is stopped
+        run: node scripts/e2e-smoke.mjs http://127.0.0.1:3000 --runaway | tee runaway.json && grep -q 'Stopped a runaway query' runaway.json

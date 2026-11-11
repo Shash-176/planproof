@@ -14,7 +14,7 @@ const ORDER: { step: ProgressStep; label: string }[] = [
 ];
 
 export function Progress({ steps, startedAt, useAi, onCancel }: { steps: ProgressEvent[]; startedAt: number; useAi: boolean; onCancel: () => void }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(startedAt);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
