@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import pkg from './package.json' with { type: 'json' };
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -37,6 +38,15 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /**
+   * Static assets are served as immutable for a year. Next.js appends
+   * ?dpl=<deploymentId> to their URLs, so tying it to the release version
+   * gives every release fresh URLs. Without this, browsers that cached the
+   * Web Worker script before the COEP header existed kept reusing that copy,
+   * which a cross-origin-isolated page refuses to run (found in production
+   * after v1.0.0).
+   */
+  deploymentId: `planproof-${pkg.version.replace(/[^A-Za-z0-9_-]/g, '_')}`,
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {

@@ -2,6 +2,15 @@
 
 Newest first. Only things that were run and observed are marked done.
 
+## 13 Nov 2026 — v1.0.1: release closure
+
+- GitHub `main` and tag `v1.0.0` at `a557b03`; CI run #3 started for it.
+- Production carries the COEP fix: isolated page, 5 µs clock steps, Groq configured.
+- **Regression found in production:** returning visitors' cached Web Worker script (no COEP) is refused by the isolated
+  page; every run fails. Fixed in 1.0.1 with a versioned `deploymentId`. Verified locally (all asset URLs versioned;
+  demo, examples, mobile, runaway OK; 120 tests; lint; audit 0). **Production re-check pending the 1.0.1 deploy.**
+
+
 ## 11 Nov 2026 — v1.0.0: production release validation
 
 ### Owner-reported

@@ -3,7 +3,7 @@
 Not marketing. A ledger of facts that a resume bullet could rest on, each with where to verify it.
 If a number here changes, update it from its source; never round up.
 
-_Last updated: 11 Nov 2026, version 1.0.0._
+_Last updated: 13 Nov 2026, version 1.0.1._
 
 ## Status at a glance
 
@@ -94,6 +94,11 @@ watchdog; no console errors or CSP violations.
    overall deadline; verification never depends on the model. (`src/lib/ai/analyze.ts`, `tests/ai.test.ts`)
 
 ## Bugs found by tests or review
+
+- **A security-header change broke the app for returning visitors (found in production).** After adding COEP, browsers
+  that had cached the Web Worker script before the change reused it for up to a year; isolated pages refuse to start a
+  worker whose response lacks COEP (`ERR_BLOCKED_BY_RESPONSE`). Diagnosed by comparing the cached URL with a
+  cache-busted one. Fixed by versioning all static asset URLs with Next.js `deploymentId`. (`next.config.ts`, CHANGELOG 1.0.1)
 
 - **Coarse browser clock distorted speed-ups (found in production).** Without cross-origin isolation, browsers step
   `performance.now()` in 0.1 ms; PGlite's EXPLAIN timings use it, so one index showed 76× in one card and 152× in

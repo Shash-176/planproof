@@ -18,6 +18,9 @@ Facts from https://vercel.com/docs/plans/hobby and https://vercel.com/docs/funct
 - `next.config.ts`: security headers, CSP, and COOP + COEP for cross-origin isolation (precise timers for EXPLAIN ANALYZE).
 - `src/app/api/analyze/route.ts`: Node.js runtime, `maxDuration = 60`, no caching.
 - `.env.example`: every variable, with comments.
+- `deploymentId` in `next.config.ts` (from the package version): every static asset URL gets `?dpl=<version>`, so a
+  release that changes headers is never served from a browser's year-long immutable cache. **Bump the version
+  whenever headers change.**
 - No `vercel.json` is needed; Vercel detects Next.js.
 
 ## Steps (about 5 minutes)
@@ -80,3 +83,16 @@ optimised queries read as 0.10 or 0.00 ms and the same index showed 76× in one 
 adding COEP (verified locally in Chromium: `crossOriginIsolated` true, timings to 0.01 ms, PGlite working) and by
 reporting sub-resolution results as lower bounds. Re-check production after the fix deploys: the response headers
 should include `Cross-Origin-Embedder-Policy: require-corp`.
+
+## Release verification, 13 Nov 2026 (v1.0.0 deployed)
+
+- `main` and tag `v1.0.0` on GitHub both at `a557b03`.
+- Production now sends `Cross-Origin-Embedder-Policy: require-corp`; the page reports `crossOriginIsolated: true`; the
+  browser's clock steps measured on the page were 5 µs (0.1 ms before the fix). Groq still configured.
+- **Regression found:** in a browser that had visited before 1.0.0, every run failed ("The sandbox crashed"). The Web
+  Worker request failed with `net::ERR_BLOCKED_BY_RESPONSE`. Vercel was serving the worker file *with* COEP (checked
+  with a no-store fetch), but the browser reused its year-long immutable cached copy from 11 Nov, which had no COEP
+  header. Loading the same file under a new URL worked. First-time visitors were unaffected (fresh browser test).
+- **Fix (1.0.1):** `deploymentId` from the package version; locally verified that all 18 static asset requests,
+  including the worker, carry `?dpl=planproof-1_0_1`, with the demo, all four examples, mobile and the runaway stop
+  working under cross-origin isolation.

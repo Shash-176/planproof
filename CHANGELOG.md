@@ -3,6 +3,17 @@
 All notable changes to PlanProof. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-11-13
+
+### Fixed
+- Returning visitors could not run any verification after 1.0.0. Static assets are cached as immutable for a year,
+  and the Web Worker script kept the same URL across the release, so browsers that had loaded the site before the
+  COEP header existed reused a cached copy without it; a cross-origin-isolated page refuses to start such a worker
+  (`net::ERR_BLOCKED_BY_RESPONSE`), and every run failed with "The sandbox crashed". First-time visitors were not
+  affected. Found during production verification.
+  Fix: `deploymentId` is set from the package version, so Next.js appends `?dpl=<version>` to every static asset URL
+  (worker included) and each release gets URLs no stale cache can match.
+
 ## [1.0.0] — 2026-11-11
 
 First stable release. Deployed at https://planproof-two.vercel.app/ and checked in production

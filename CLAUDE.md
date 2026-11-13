@@ -15,7 +15,7 @@ Repo: https://github.com/Shash-176/planproof · Started as a BharatCode Build Le
 
 ## Current state
 
-Version `1.0.0`, live at https://planproof-two.vercel.app/ (Vercel, auto-deploys from `main`).
+Version `1.0.1`, live at https://planproof-two.vercel.app/ (Vercel, auto-deploys from `main`).
 See `docs/PROGRESS.md` (status) and `CHANGELOG.md`.
 
 ## Rules
@@ -64,6 +64,9 @@ Browser tests against the mock: `npm run build`, then
   browser (the owner's desktop app browser pane works) and real AI calls on the deployed site.
 - Browser timers are coarse (0.1 ms) unless the page is cross-origin isolated; keep the COOP/COEP headers and
   never add cross-origin subresources without a CORP/CORS header, or isolation (and precise timings) breaks.
+- Static assets are cached as immutable for a year. `deploymentId` (from the package version) versions their URLs:
+  **bump the version for any release that changes response headers**, or returning visitors keep stale copies
+  (this broke the worker after the COEP change; fixed in 1.0.1).
 - Commits made in the cloud workspace reach the owner's folder `F:\BharatCode-Build-League` as a git
   bundle; the owner pushes from Windows. Never commit `.env.local` or `.planproof-sync*`.
 
