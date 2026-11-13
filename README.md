@@ -17,11 +17,14 @@ evidence.
 
 ## Verified in production
 
-Checked on the live deployment on 11 November 2026 (details in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#production-verification)):
+Version **1.0.2**, checked on the live deployment on 13 November 2026 (details in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#production-verification)):
 
-- The one-click demo and all four built-in examples return their documented verdicts.
-- AI analysis runs through Groq (`openai/gpt-oss-120b`); its answers are verified like any other suggestion.
+- The one-click demo and all four built-in examples return their documented verdicts, for first-time and returning visitors.
+- AI analysis runs through Groq (`openai/gpt-oss-120b`); its suggestions are checked like any other. In one live run the
+  model proposed a rewrite that changed the results, and PlanProof marked it UNSAFE.
 - Cancelling a run, invalid input and a runaway query are handled; the page recovers afterwards.
+- The page is cross-origin isolated, so timings come from a microsecond clock (5 µs steps observed).
 - Security headers are present, the API key is not in any page or script the browser loads, and the AI endpoint
   rejects malformed, oversized and excessive requests.
 
@@ -103,7 +106,7 @@ not what the same change does on a production server. Methodology is in the resu
 
 ## Testing
 
-**120 automated tests**, all passing, plus a browser smoke test in CI.
+**124 automated tests**, all passing, plus a browser smoke test in CI.
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -114,6 +117,7 @@ not what the same change does on a production server. Methodology is in the resu
 | `tests/pipeline.test.ts` | 31 | Full verification pipeline on real PGlite: verdicts, destructive SQL, untrusted AI output, coarse clocks |
 | `tests/timer.test.ts` | 4 | Clock-resolution estimation (coarse, fine, frozen, real clocks) |
 | `tests/watchdog.test.ts` | 5 | Runaway-query watchdog (fake timers) |
+| `tests/workerLoader.test.ts` | 4 | Recovery from a stale cached worker script |
 
 ```bash
 npm test          # unit + integration (real PGlite)
@@ -182,18 +186,19 @@ Details and known limitations: [SECURITY.md](SECURITY.md).
 - Identical results on three datasets is strong evidence, not a proof of equivalence.
 - One read-only query at a time. Write cost of indexes is reported as size only.
 - If the original `ORDER BY` has ties, a correct rewrite can be reported as a different order.
+- Speed-ups are rounded for display, so an INEFFECTIVE result can show "1.5×" when the measured ratio was just under
+  the 1.5× threshold.
+- The first visit after a release that changes response headers can take one extra worker download for browsers that
+  cached the old script (handled automatically).
 
 ## Tech stack
 
 TypeScript · Next.js 16 · React 19 · PGlite (PostgreSQL 18 in WebAssembly) · Zod · Vitest · Playwright (smoke script) ·
 ESLint · GitHub Actions · Vercel
 
-## Roadmap
+## Project status
 
-- Import real table statistics (`pg_stats`) or a data sample to make plans match production more closely
-- Test combinations (index plus rewrite)
-- A CLI and GitHub Action that check SQL changes in pull requests
-- Shareable result links
+PlanProof is frozen at **v1.0.2** (13 November 2026). No further development is planned.
 
 ## Project history
 

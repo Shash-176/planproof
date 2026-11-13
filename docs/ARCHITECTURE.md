@@ -68,6 +68,10 @@ displayed, labelled "not evidence", and never read by any decision code.
 
 - **`src/app/page.tsx`**: landing page, examples, the form for testing your own SQL, and results.
 - **`src/app/useVerifier.ts`**: starts a Web Worker per run, relays progress, and owns the watchdog.
+- **`src/lib/workerLoader.ts`**: the page is cross-origin isolated (COOP + COEP), and an isolated page refuses a worker
+  script served without COEP. A browser that cached the worker script before COEP existed keeps that copy (assets are
+  immutable for a year and the worker loader's URL does not change between releases). If the worker fails before its
+  first message, the app re-downloads the script once with `cache: 'reload'` and retries.
 - **`src/lib/watchdog.ts`**: PGlite runs in one WebAssembly thread and ignores `statement_timeout`,
   so a runaway query cannot be cancelled from inside. The watchdog times each database step (default
   45 s) and terminates the worker if it stalls. AI calls are not timed by it.

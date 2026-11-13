@@ -3,20 +3,20 @@
 Not marketing. A ledger of facts that a resume bullet could rest on, each with where to verify it.
 If a number here changes, update it from its source; never round up.
 
-_Last updated: 13 Nov 2026, version 1.0.1._
+_Last updated: 13 Nov 2026, version 1.0.2 (final; project frozen)._
 
 ## Status at a glance
 
 | Item | Value | Evidence |
 |---|---|---|
-| Automated tests | **120 passing** in 7 files | `npm test`; per-suite counts below |
-| Evaluation | **65 / 65 runs** matched the expected verdict (13 scenarios × 5 runs); no scenario's verdict varied | `docs/benchmarks/RESULTS.md`, `results.json` |
+| Automated tests | **124 passing** in 8 files | `npm test`; per-suite counts below |
+| Evaluation | **65 / 65 runs** matched the expected verdict (13 scenarios × 5 runs); no scenario's verdict varied. Run on 1.0.0; the verification engine and eval code are unchanged since (`git diff a557b03..v1.0.2 -- src/lib/harness src/lib/sql eval` is empty) | `docs/benchmarks/RESULTS.md`, `results.json` |
 | Semantic regressions caught | **5 / 5** result-changing scenarios flagged UNSAFE in every run | same |
 | Lint / types | ESLint (Next.js + typescript-eslint) clean; `tsc --strict` clean | `npm run lint`, `npm run typecheck` |
 | Dependencies | `npm audit`: 0 vulnerabilities | `npm audit` |
-| CI | Lint, typecheck, tests, build, audit, then a Chromium smoke test against a mock AI provider. **Passed on GitHub** (runs #1 and #2, latest on `13372af`) | `.github/workflows/ci.yml`; https://github.com/Shash-176/planproof/actions |
-| Deployment | **Live** at https://planproof-two.vercel.app/ (Vercel Hobby, $0). Production checks passed; table in the deployment doc | `docs/DEPLOYMENT.md#production-verification` |
-| Real AI provider | **Working.** Groq `openai/gpt-oss-120b` answered on the live site (one observed call: 1.1 s); owner also verified locally. Failure paths tested against mocks | `docs/DEPLOYMENT.md#production-verification`, `tests/ai.test.ts` |
+| CI | Lint, typecheck, tests, build, audit, then a Chromium smoke test against a mock AI provider. **All 5 GitHub runs passed**, latest #5 on `dd304c1` (v1.0.2) | `.github/workflows/ci.yml`; https://github.com/Shash-176/planproof/actions |
+| Deployment | **Live** at https://planproof-two.vercel.app/ (Vercel Hobby, $0), v1.0.2. Final production checks passed for returning and first-time visitors | `docs/DEPLOYMENT.md` ("v1.0.2 deployed — final") |
+| Real AI provider | **Working.** Groq `openai/gpt-oss-120b` answered on every live run checked (handful of calls, 0.8–1.1 s each); owner also verified locally. Failure paths tested against mocks | `docs/DEPLOYMENT.md`, `tests/ai.test.ts` |
 
 ## Technology (actually used)
 
@@ -64,6 +64,7 @@ is exact and reproducible; "~173× faster in WebAssembly on synthetic data" need
 | `tests/pipeline.test.ts` | 31 | Full verification pipeline on real PGlite: verdicts, destructive SQL, untrusted AI output, coarse clocks |
 | `tests/timer.test.ts` | 4 | Clock-resolution estimation (coarse, fine, frozen, real clocks) |
 | `tests/watchdog.test.ts` | 5 | Runaway-query watchdog (fake timers) |
+| `tests/workerLoader.test.ts` | 4 | Recovery from a stale cached worker script |
 
 What the suites cover (named in the test titles): destructive SQL including a `DELETE` hidden in a CTE; NULL,
 duplicate-row, ordering and empty-table traps; invalid SQL; generated data across FKs, identity, enum, uuid,
@@ -98,7 +99,11 @@ watchdog; no console errors or CSP violations.
 - **A security-header change broke the app for returning visitors (found in production).** After adding COEP, browsers
   that had cached the Web Worker script before the change reused it for up to a year; isolated pages refuse to start a
   worker whose response lacks COEP (`ERR_BLOCKED_BY_RESPONSE`). Diagnosed by comparing the cached URL with a
-  cache-busted one. Fixed by versioning all static asset URLs with Next.js `deploymentId`. (`next.config.ts`, CHANGELOG 1.0.1)
+  cache-busted one. First attempted fix (1.0.1, versioning asset URLs with Next.js `deploymentId`) passed locally but
+  **did nothing on Vercel**, which does not version those URLs. Final fix (1.0.2): if the worker fails before its first
+  message, re-download its script once with `cache: 'reload'` and retry. Reproduced the exact production failure locally
+  with one persistent browser profile across three builds before shipping, then confirmed in production in the browser
+  that had the stale copy. (`src/lib/workerLoader.ts`, `tests/workerLoader.test.ts`, CHANGELOG 1.0.1–1.0.2)
 
 - **Coarse browser clock distorted speed-ups (found in production).** Without cross-origin isolation, browsers step
   `performance.now()` in 0.1 ms; PGlite's EXPLAIN timings use it, so one index showed 76× in one card and 152× in
@@ -123,16 +128,19 @@ server-only API keys · CSP and security headers · model output validated twice
 Browser Postgres vs. hosted sandbox · testing vs. formal equivalence · one structured LLM call vs. an agent ·
 in-memory rate limit vs. Redis · lexical guard + database enforcement vs. a full SQL parser. See `docs/INTERVIEW-GUIDE.md` §18.
 
-## Production facts (observed 11 Nov 2026, single observations unless stated)
+## Production facts (observed 11–13 Nov 2026; a handful of runs, not benchmarks)
 
-- Live site ran the demo end to end with real AI analysis in 8.7 s; each example took 7–10 s.
-- Groq `openai/gpt-oss-120b` answer latency: **1.1 s in one observed call**. Not a benchmark.
-- The model's own proposals were judged by the same rules: across the demo and the three other examples they came out VERIFIED (2) and INEFFECTIVE (2).
-  Evidence that verdicts don't depend on who proposed the SQL, not a measure of model quality.
+- Live demo end to end with real AI analysis: 8.7 s (both on 11 and 13 Nov); individual examples 6.7–10.5 s.
+- Groq `openai/gpt-oss-120b` answers observed at 0.8–1.1 s. A few observations, not a latency benchmark.
+- The model's own proposals went through the same checks. On 13 Nov one of them, a rewrite for the NOT EXISTS example,
+  changed the results and was marked **UNSAFE**: a live example of the model being wrong and the engine catching it.
+- With the page cross-origin isolated, the browser clock measured in 5 µs steps (0.1 ms before).
 
 ## Not yet true (do not claim)
 
 - Users, traffic or adoption (the site is live; nothing is known about who uses it)
-- GitHub stars or adoption
-- Production speed-ups (all numbers are WebAssembly on synthetic data)
-- AI latency or quality statistics (one observed call is an anecdote)
+- GitHub stars or community adoption
+- Production database speed-ups (all numbers are WebAssembly on synthetic data)
+- AI latency or quality statistics (a handful of observed calls)
+- "Proves equivalence" (it tests equivalence on three datasets)
+- "Accuracy" on real-world queries (the 65/65 eval covers 13 designed scenarios with known answers)

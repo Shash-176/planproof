@@ -18,9 +18,9 @@ Facts from https://vercel.com/docs/plans/hobby and https://vercel.com/docs/funct
 - `next.config.ts`: security headers, CSP, and COOP + COEP for cross-origin isolation (precise timers for EXPLAIN ANALYZE).
 - `src/app/api/analyze/route.ts`: Node.js runtime, `maxDuration = 60`, no caching.
 - `.env.example`: every variable, with comments.
-- `deploymentId` in `next.config.ts` (from the package version): every static asset URL gets `?dpl=<version>`, so a
-  release that changes headers is never served from a browser's year-long immutable cache. **Bump the version
-  whenever headers change.**
+- `deploymentId` in `next.config.ts` (from the package version) versions asset URLs with `?dpl=` under `next start`.
+  **On Vercel it does not change asset URLs**, so it is not what protects returning visitors; the worker recovery
+  in `src/lib/workerLoader.ts` is (see the 1.0.2 section below).
 - No `vercel.json` is needed; Vercel detects Next.js.
 
 ## Steps (about 5 minutes)
@@ -93,6 +93,26 @@ should include `Cross-Origin-Embedder-Policy: require-corp`.
   Worker request failed with `net::ERR_BLOCKED_BY_RESPONSE`. Vercel was serving the worker file *with* COEP (checked
   with a no-store fetch), but the browser reused its year-long immutable cached copy from 11 Nov, which had no COEP
   header. Loading the same file under a new URL worked. First-time visitors were unaffected (fresh browser test).
-- **Fix (1.0.1):** `deploymentId` from the package version; locally verified that all 18 static asset requests,
-  including the worker, carry `?dpl=planproof-1_0_1`, with the demo, all four examples, mobile and the runaway stop
-  working under cross-origin isolation.
+- **Attempted fix (1.0.1):** `deploymentId` from the package version. Locally, all 18 static asset requests carried
+  `?dpl=planproof-1_0_1`. **In production it had no effect**: Vercel served the worker from the same unversioned URL and
+  the returning-visitor browser still failed. Lesson: `next start` is not a faithful stand-in for Vercel's asset serving.
+
+## Release verification, 13 Nov 2026 (v1.0.2 deployed) — final
+
+- GitHub `main` and tag `v1.0.2` at `dd304c1`; CI run #5 on `dd304c1` passed (3m 22s); all five CI runs have passed.
+- **Fix (1.0.2):** if the Web Worker fails before sending any message, PlanProof re-downloads its script once with
+  `cache: 'reload'` (replacing the stale cache entry) and starts it again (`src/lib/workerLoader.ts`).
+- **Returning visitor (the browser that reproduced the failure):** the demo completed (8.7 s, VERIFIED ×2). Network log:
+  the stale worker request failed with `ERR_BLOCKED_BY_RESPONSE`, the refresh returned 200, and the retried worker
+  started. Every later worker load in that browser succeeded on the first request.
+- **Fresh visitor:** a new browser profile is not affected by stale caches. Verified locally with a new profile on the
+  1.0.2 build, and in production by the uncached loads that followed the refresh. A separate fresh profile was not
+  used against production.
+- Demo and all four examples: documented verdicts on the pasted suggestions (VERIFIED, INEFFECTIVE, UNSAFE,
+  UNSAFE on the edge-case dataset), 6.7–10.5 s each. Groq `openai/gpt-oss-120b` answered each time in 0.8–0.9 s. In one run
+  the model proposed its own rewrite that changed the results; it was marked UNSAFE.
+- Cancel mid-run: progress cleared, nothing rendered, buttons re-enabled. Runaway query (`?dbStepLimitMs=3000`): stopped,
+  then the next run succeeded.
+- Timing: page isolated, clock steps 5 µs; reported speed-ups were exact ratios (all optimised times above the clock step).
+- Headers unchanged (CSP, COOP, COEP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, HSTS); `/api/analyze`
+  returned 400 / 413 / 405 for bad JSON, an oversized body and PUT. Console errors: only those three deliberate requests.

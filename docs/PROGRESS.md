@@ -2,6 +2,24 @@
 
 Newest first. Only things that were run and observed are marked done.
 
+## 13 Nov 2026 — v1.0.2: final release, project closed
+
+- **1.0.1 did not fix production.** In the browser that had visited before COEP, every run still failed: Vercel served
+  the worker from the same unversioned URL, so `deploymentId` had no effect there.
+- **1.0.2 fix:** re-download the worker script once with `cache: 'reload'` when the worker fails before its first message,
+  then retry (`src/lib/workerLoader.ts`, 4 new tests). Reproduced the exact failure locally first (one persistent
+  Chromium profile across three builds), then confirmed the recovery.
+- **Final production verification (same browser that reproduced the failure):** stale worker blocked once, refreshed
+  (200), retried successfully; demo VERIFIED ×2 in 8.7 s; all four examples gave their documented verdicts; Groq
+  `openai/gpt-oss-120b` answered each run (0.8–0.9 s), and one model rewrite was caught as UNSAFE; cancel, runaway stop and
+  recovery OK; 5 µs clock steps; headers intact; API 400/413/405; no unexpected console errors. Later loads started the
+  worker first time (the path a fresh visitor takes); a fresh profile was verified locally, not against production.
+- **CI:** all 5 runs passed (#5 on `dd304c1`).
+- **Final local checks:** 124 tests (8 files), lint, typecheck, build, `npm audit` 0, no secrets in history, `.env.local`
+  ignored, no temporary files tracked.
+- **Closed.** Handoff in `CLAUDE.md`.
+
+
 ## 13 Nov 2026 — v1.0.1: release closure
 
 - GitHub `main` and tag `v1.0.0` at `a557b03`; CI run #3 started for it.
@@ -76,15 +94,16 @@ Newest first. Only things that were run and observed are marked done.
 - Findings: PGlite ignores `statement_timeout`; WASM timings vary ~15%; generated text never matched
   query literals, hiding the NULL trap (fixed by seeding literals).
 
-## Status
+## Status (final)
 
 | Area | Status |
 |---|---|
-| Verification engine | Done, tested |
-| AI provider layer | Done; real Groq calls verified (owner locally, and on the live site) |
-| UI / one-click demo | Done; verified on the live site (desktop and mobile) |
-| Tests | 120 passing |
-| Evaluation | 13 scenarios × 5 runs, results committed |
+| Version | 1.0.2 (frozen) |
+| Verification engine | Done, tested; unchanged since the 1.0.0 evaluation |
+| AI provider layer | Done; real Groq calls verified on the live site |
+| UI / one-click demo | Done; verified on the live site for first-time and returning visitors |
+| Tests | 124 passing |
+| Evaluation | 13 scenarios × 5 runs, 65 / 65 |
 | Lint / typecheck / build / audit | Clean / clean / passing / 0 vulnerabilities |
-| CI | Passing on GitHub (runs #1, #2) |
-| Deployment | Live at https://planproof-two.vercel.app/; timing fix awaiting push |
+| CI | All 5 runs passed |
+| Deployment | Live at https://planproof-two.vercel.app/ |

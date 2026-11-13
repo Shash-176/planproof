@@ -73,6 +73,9 @@ Key decisions:
 - Consequence 2: timings vary run to run (~15% observed), so verdict rules can't depend on small
   timing differences.
 - The CSP needs `'wasm-unsafe-eval'` so the browser may compile the WebAssembly module.
+- Consequence 3: PGlite's timings come from the browser's `performance.now()`, which browsers coarsen to 0.1 ms
+  unless the page is **cross-origin isolated** (COOP + COEP headers). PlanProof is isolated, so the clock steps in
+  microseconds (5 µs observed in production), and anything at or below the measured step is reported as a minimum.
 
 ## 6. Query plans in one page
 
@@ -203,6 +206,7 @@ Why 1.5×: observed run-to-run variation in WebAssembly was around 15%. Requirin
 | Runaway query | Watchdog terminates the worker after 45 s without progress |
 | Data generation can't satisfy a constraint | Warning naming the table; suggestion to provide seed SQL |
 | Unknown server exception | Generic message; details only in server logs |
+| Worker script blocked (stale cached copy without COEP) | Re-download the script once with `cache: 'reload'`, retry; only then report a crash |
 
 ## 15. Security
 
@@ -215,7 +219,8 @@ never makes one.
 ## 16. Deployment
 
 Vercel Hobby (free): a static page plus one serverless function. One secret (`GROQ_API_KEY`). No database
-server. Cost with no payment methods on file: $0. Steps in [DEPLOYMENT.md](DEPLOYMENT.md).
+server. Cost with no payment methods on file: $0. Live at https://planproof-two.vercel.app/ (v1.0.2, final).
+Steps and the production verification record are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 17. Scaling limitations
 
@@ -280,10 +285,29 @@ per-model quotas, so a second model is a real fallback. Gemini's free tier terms
 the EEA/UK. The adapter is OpenAI-compatible, so switching is configuration.
 
 **Q: What was the hardest bug?**
-The NULL-trap example passed as "INEFFECTIVE" at first: the edge dataset generated text values like `status_0`, so
-`status = 'pending'` never matched and the NULL case never triggered. Fix: mix the query's own string literals
-into generated text columns. Another: an unexpected exception's message (with a file path) could reach API clients;
-a test now asserts internal text never leaks.
+Two bugs that only showed up in production, back to back:
+
+1. *Coarse clock.* The same index showed "76× faster" in one card and "152×" in another. Browsers step
+   `performance.now()` in 0.1 ms unless the page is cross-origin isolated, and PGlite's EXPLAIN timings come from that
+   clock, so a 0.06 ms query read as 0.1 or 0.0 ms. Fix: COOP + COEP headers (microsecond clock), and report anything
+   below the measured clock step as "at least N×" so a ratio can never be infinite or fake-precise.
+2. *The fix broke returning visitors.* After COEP shipped, every run crashed in a browser that had visited before. The
+   worker script was cached as immutable for a year *without* the COEP header, and an isolated page refuses such a
+   worker (`ERR_BLOCKED_BY_RESPONSE`). My first fix, versioning asset URLs with Next.js `deploymentId`, passed locally
+   but did nothing on Vercel, which doesn't version those URLs. The lesson was that my local server wasn't a faithful
+   copy of the host. The final fix doesn't depend on URLs: if the worker fails before its first message, re-download its
+   script once with `cache: 'reload'` (which replaces the stale cache entry) and retry. I reproduced the exact failure
+   locally with one browser profile across three builds before shipping it, then confirmed it in production in the
+   browser that had the stale copy.
+
+Earlier ones: the NULL-trap example was first judged INEFFECTIVE because generated text values (`status_0`) never
+matched `'pending'` (fix: seed generated text with the query's own literals), and an unexpected exception's message
+could reach API clients (a test now asserts it can't).
+
+**Q: How did you verify the production fixes, given you couldn't attach a debugger to users' browsers?**
+By reproducing the failure on purpose: the browser that had visited before was the test case. For the worker bug I
+compared the network log (blocked request, then the refresh, then a successful start) and checked that later visits
+loaded the worker on the first request.
 
 **Q: What would you change for production?**
 Real statistics import, a shared rate-limit store, nonce-based CSP, and running candidates against a copy of real
