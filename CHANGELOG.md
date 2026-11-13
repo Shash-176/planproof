@@ -3,6 +3,19 @@
 All notable changes to PlanProof. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-11-13
+
+### Fixed
+- The 1.0.1 fix did not work on Vercel: asset URLs there are not versioned by `deploymentId`, so returning visitors
+  still received the stale worker script and every run failed. Found during production verification of 1.0.1.
+  PlanProof now recovers on its own: if the Web Worker fails before sending any message, the app re-downloads the
+  worker script once with `cache: 'reload'` (replacing the stale cached copy with the server's current response,
+  which has COEP) and starts the worker again (`src/lib/workerLoader.ts`). Verified locally by reproducing the exact
+  production failure with one persistent browser profile across three builds, then recovering from it.
+
+### Changed
+- `deploymentId` is kept (it versions asset URLs when self-hosting) but is documented as not protecting Vercel users.
+
 ## [1.0.1] — 2026-11-13
 
 ### Fixed
@@ -11,8 +24,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   COEP header existed reused a cached copy without it; a cross-origin-isolated page refuses to start such a worker
   (`net::ERR_BLOCKED_BY_RESPONSE`), and every run failed with "The sandbox crashed". First-time visitors were not
   affected. Found during production verification.
-  Fix: `deploymentId` is set from the package version, so Next.js appends `?dpl=<version>` to every static asset URL
-  (worker included) and each release gets URLs no stale cache can match.
+  Attempted fix: `deploymentId` from the package version, so Next.js appends `?dpl=<version>` to static asset URLs.
+  This works with `next start` but not on Vercel; see 1.0.2.
 
 ## [1.0.0] — 2026-11-11
 

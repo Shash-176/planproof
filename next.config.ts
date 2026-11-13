@@ -39,12 +39,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   /**
-   * Static assets are served as immutable for a year. Next.js appends
-   * ?dpl=<deploymentId> to their URLs, so tying it to the release version
-   * gives every release fresh URLs. Without this, browsers that cached the
-   * Web Worker script before the COEP header existed kept reusing that copy,
-   * which a cross-origin-isolated page refuses to run (found in production
-   * after v1.0.0).
+   * Versions static asset URLs with ?dpl=<version> where the host supports it
+   * (self-hosting / `next start`). On Vercel the asset URLs are not versioned
+   * this way, so it does NOT protect returning visitors there: the worker
+   * recovery in src/lib/workerLoader.ts does.
    */
   deploymentId: `planproof-${pkg.version.replace(/[^A-Za-z0-9_-]/g, '_')}`,
   reactStrictMode: true,

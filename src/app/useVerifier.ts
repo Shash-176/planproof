@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PipelineInput, ProgressEvent } from '@/lib/harness/pipeline';
 import type { Report } from '@/lib/harness/types';
 import { DEFAULT_DB_STEP_LIMIT_MS, limitFromSearch, Watchdog } from '@/lib/watchdog';
+import { recordWorkerUrl, refreshCachedScript } from '@/lib/workerLoader';
 import type { FromWorker } from '@/worker/protocol';
 
 export type RunState =
@@ -17,12 +18,14 @@ export function useVerifier() {
   const workerRef = useRef<Worker | null>(null);
   const dogRef = useRef<Watchdog | null>(null);
   const limitRef = useRef(DEFAULT_DB_STEP_LIMIT_MS);
+  const runIdRef = useRef(0);
 
   useEffect(() => {
     limitRef.current = limitFromSearch(window.location.search);
   }, []);
 
   const stop = useCallback(() => {
+    runIdRef.current++;
     dogRef.current?.disarm();
     dogRef.current = null;
     workerRef.current?.terminate();
@@ -43,8 +46,7 @@ export function useVerifier() {
         return;
       }
 
-      const worker = new Worker(new URL('../worker/pipeline.worker.ts', import.meta.url), { type: 'module' });
-      workerRef.current = worker;
+      const runId = ++runIdRef.current;
       const dog = new Watchdog(limitRef.current, (label, limit) => {
         stop();
         setState({
@@ -56,26 +58,44 @@ export function useVerifier() {
       });
       dogRef.current = dog;
 
-      worker.onmessage = (e: MessageEvent<FromWorker>) => {
-        const m = e.data;
-        if (m.type === 'progress') {
-          steps.push(m.progress);
-          dog.observe(m.progress);
-          setState({ status: 'running', steps: [...steps], startedAt });
-        } else if (m.type === 'result') {
+      const launch = (attempt: number) => {
+        const { worker, scriptUrl } = recordWorkerUrl(() => new Worker(new URL('../worker/pipeline.worker.ts', import.meta.url), { type: 'module' }));
+        workerRef.current = worker;
+        let heardFrom = false;
+
+        worker.onmessage = (e: MessageEvent<FromWorker>) => {
+          heardFrom = true;
+          const m = e.data;
+          if (m.type === 'progress') {
+            steps.push(m.progress);
+            dog.observe(m.progress);
+            setState({ status: 'running', steps: [...steps], startedAt });
+          } else if (m.type === 'result') {
+            stop();
+            setState({ status: 'done', report: m.report, steps: [...steps] });
+          } else {
+            stop();
+            setState({ status: 'error', message: m.message, stage: m.stage, steps: [...steps] });
+          }
+        };
+        worker.onerror = (e) => {
+          // A worker that fails before saying anything most likely never loaded:
+          // refresh its cached script once and try again (see workerLoader.ts).
+          if (!heardFrom && attempt === 0 && scriptUrl) {
+            e.preventDefault();
+            worker.terminate();
+            void refreshCachedScript(scriptUrl).then(() => {
+              if (runIdRef.current === runId && workerRef.current === worker) launch(1);
+            });
+            return;
+          }
           stop();
-          setState({ status: 'done', report: m.report, steps: [...steps] });
-        } else {
-          stop();
-          setState({ status: 'error', message: m.message, stage: m.stage, steps: [...steps] });
-        }
+          setState({ status: 'error', stage: 'worker', message: e.message || 'The verification sandbox crashed.', steps: [...steps] });
+        };
+        dog.observe({ label: 'Starting Postgres', db: true });
+        worker.postMessage({ type: 'run', input });
       };
-      worker.onerror = (e) => {
-        stop();
-        setState({ status: 'error', stage: 'worker', message: e.message || 'The verification sandbox crashed.', steps: [...steps] });
-      };
-      dog.observe({ label: 'Starting Postgres', db: true });
-      worker.postMessage({ type: 'run', input });
+      launch(0);
     },
     [stop],
   );
